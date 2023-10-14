@@ -1,0 +1,13 @@
+{
+  "_template": "gh:cjolowicz/cookiecutter-hypermodern-python",
+  "author": "Daniel Thonon",
+  "copyright_year": "2023",
+  "development_status": "Development Status :: 3 - Alpha",
+  "email": "d.thonon9@gmail.com",
+  "friendly_name": "Oca Utils",
+  "github_user": "dthonon",
+  "license": "MIT",
+  "package_name": "oca_utils",
+  "project_name": "oca-utils",
+  "version": "0.0.0"
+}
