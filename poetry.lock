@@ -308,6 +308,20 @@ conda = ["pyyaml"]
 pipenv = ["pipenv (<=2022.12.19)"]
 
 [[package]]
+name = "exif"
+version = "1.6.0"
+description = "Read and modify image EXIF metadata using Python."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "exif-1.6.0-py3-none-any.whl", hash = "sha256:2d002b5740eb897da43de1e6a8f4ebacf5171b4d0b8bc0182c70aebde1be86d3"},
+    {file = "exif-1.6.0.tar.gz", hash = "sha256:36288d1ffc60030084a04c26f50cc32e19383a36cd234fcfa1fb1c6f698e1d36"},
+]
+
+[package.dependencies]
+plum-py = ">=0.5.0,<2.0.0"
+
+[[package]]
 name = "filelock"
 version = "3.7.1"
 description = "A platform independent file lock."
@@ -845,6 +859,16 @@ files = [
 [package.extras]
 dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
+
+[[package]]
+name = "plum-py"
+version = "0.8.7"
+description = "Pack/Unpack Memory."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "plum_py-0.8.7-py3-none-any.whl", hash = "sha256:d791f059ef159adbe3c3b036557b5b431fa07db226a9de106a74e5e57441741d"},
+]
 
 [[package]]
 name = "pre-commit"
@@ -1576,7 +1600,18 @@ jupyter = ["IPython", "IPython", "attrs", "debugpy", "ipykernel", "ipykernel", "
 optional = ["IPython", "IPython", "Pygments", "Pygments", "attrs", "colorama", "debugpy", "ipykernel", "ipykernel", "jedi", "jinja2", "jupyter-client", "jupyter-client", "jupyter-core", "nbconvert"]
 tests = ["cmake", "codecov", "ninja", "pybind11", "pytest", "pytest", "pytest", "pytest", "pytest", "pytest", "pytest-cov", "pytest-cov", "pytest-cov", "pytest-cov", "scikit-build", "typing"]
 
+[[package]]
+name = "xmltodict"
+version = "0.13.0"
+description = "Makes working with XML feel like you are working with JSON"
+optional = false
+python-versions = ">=3.4"
+files = [
+    {file = "xmltodict-0.13.0-py2.py3-none-any.whl", hash = "sha256:aa89e8fd76320154a40d19a0df04a4695fb9dc5ba977cbb68ab3e4eb225e7852"},
+    {file = "xmltodict-0.13.0.tar.gz", hash = "sha256:341595a488e3e01a85a9d8911d8912fd922ede5fecc4dce437eb4b6c8d037e56"},
+]
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f2efd3930f4e8af6d75aaf72ff7fb03376c57f39af5ae325667ffcae745ab542"
+content-hash = "5a3d1338b932b587bfa87b556bd3f866cb0867cb1f4e5d545c322005932cc9de"
