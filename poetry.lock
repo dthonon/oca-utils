@@ -1529,6 +1529,17 @@ doc = ["sphinx-autodoc-typehints (>=1.2.0)", "sphinx-rtd-theme"]
 test = ["mypy", "pytest", "typing-extensions"]
 
 [[package]]
+name = "types-xmltodict"
+version = "0.13.0.3"
+description = "Typing stubs for xmltodict"
+optional = false
+python-versions = "*"
+files = [
+    {file = "types-xmltodict-0.13.0.3.tar.gz", hash = "sha256:8884534bab0364c4b22d5973f3c8153ff40d413a801d9e70eb893e676909f1fc"},
+    {file = "types_xmltodict-0.13.0.3-py3-none-any.whl", hash = "sha256:cb251c59e838986d8402b10d804225ade9fd6c9f66d01dc45cd6cfdf43640128"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.7.1"
 description = "Backported and Experimental Type Hints for Python 3.7+"
@@ -1615,4 +1626,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "5a3d1338b932b587bfa87b556bd3f866cb0867cb1f4e5d545c322005932cc9de"
+content-hash = "788af111aaff526793216281cb208ba51b3bcac590a0031d89a8685b0d262e00"

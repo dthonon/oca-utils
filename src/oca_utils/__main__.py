@@ -28,7 +28,7 @@ def main(
     input_directory: str,
     output_directory: str,
 ) -> None:
-    """Oca Utils."""
+    """OCA Utils."""
     logging.info("Transfert des vidéos au format OCA")
     # ensure that ctx.obj exists and is a dict (in case `cli()` is called
     # by means other than the `if` block below)
