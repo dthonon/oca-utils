@@ -1,7 +1,8 @@
 name: Labeler
 
 permissions:
-  id-token: write # This is required for requesting the JWT
+  id-token: write
+  issues: write
 
 on:
   push:

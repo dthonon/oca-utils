@@ -3,7 +3,8 @@ import click
 import logging
 from pathlib import Path
 import xmltodict
-import pprint
+from typing import List
+import re
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -38,12 +39,25 @@ def main(
     ctx.obj["OUTPUT_DIRECTORY"] = output_directory
 
 
+def noms(tags: List[str]) -> List[str]:
+    """Extraction des noms d'espèces."""
+    noms_l = []
+    nature_re = re.compile("Nature.*")
+    sp_re = re.compile("(\w|\s)+ {")
+    for t in tags:
+        if nature_re.match(t):
+            # Le tag commence par Nature et se termine par l'espèce
+            sp = re.search(sp_re, t.split("/")[-1]).group(0)
+            noms_l.append(sp[0 : len(sp) - 2])
+
+    return noms_l
+
+
 @main.command()
 @click.pass_context
 def liste(ctx: click.Context) -> None:
     """Liste des vidéos à traiter."""
     input_directory = ctx.obj["INPUT_DIRECTORY"]
-    pp = pprint.PrettyPrinter(indent=4)
 
     logging.info(f"Liste des vidéos à traiter dans {input_directory}")
     files = [f for f in Path(input_directory).glob("*.mp4.xmp")]
@@ -52,7 +66,7 @@ def liste(ctx: click.Context) -> None:
             sidecar = xmltodict.parse(fd.read(), process_namespaces=False)
         tags = sidecar["x:xmpmeta"]["rdf:RDF"]["rdf:Description"]["digiKam:TagsList"]
         tags = tags["rdf:Seq"]["rdf:li"]
-        logging.info(f"Vidéo {f.name} avec tags : {tags[0]}")
+        print(f"Vidéo {f.name} avec espèces : {noms(tags)}")
 
 
 if __name__ == "__main__":
