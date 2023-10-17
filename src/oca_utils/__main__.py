@@ -1,10 +1,12 @@
 """Command-line interface."""
-import click
 import logging
-from pathlib import Path
-import xmltodict
-from typing import List
 import re
+from pathlib import Path
+from typing import List
+
+import click
+import xmltodict
+
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -42,13 +44,14 @@ def main(
 def noms(tags: List[str]) -> List[str]:
     """Extraction des noms d'espèces."""
     noms_l = []
-    nature_re = re.compile("Nature.*")
-    sp_re = re.compile("(\w|\s)+ {")
+    nature_re = re.compile(r"Nature.*")
+    sp_re = re.compile(r"(\w|\s)+ {")
     for t in tags:
         if nature_re.match(t):
             # Le tag commence par Nature et se termine par l'espèce
             sp = re.search(sp_re, t.split("/")[-1]).group(0)
-            noms_l.append(sp[0 : len(sp) - 2])
+            sp = sp[0 : len(sp) - 2]
+            noms_l.append(sp)
 
     return noms_l
 
@@ -66,7 +69,11 @@ def liste(ctx: click.Context) -> None:
             sidecar = xmltodict.parse(fd.read(), process_namespaces=False)
         tags = sidecar["x:xmpmeta"]["rdf:RDF"]["rdf:Description"]["digiKam:TagsList"]
         tags = tags["rdf:Seq"]["rdf:li"]
-        print(f"Vidéo {f.name} avec espèces : {noms(tags)}")
+        racine = f.name[0 : len(f.name) - 8]
+        sp = noms(tags)
+        for s in sp:
+            dest = racine + "_" + s
+            print(f"Vidéo {f.name} copiée ver : {dest}")
 
 
 if __name__ == "__main__":
