@@ -49,8 +49,11 @@ def noms(tags: List[str]) -> List[str]:
     for t in tags:
         if nature_re.match(t):
             # Le tag commence par Nature et se termine par l'espèce
-            sp = re.search(sp_re, t.split("/")[-1]).group(0)
-            sp = sp[0 : len(sp) - 2]
+            sp = re.search(sp_re, t.split("/")[-1])
+            if sp:
+                sp = sp.group(0)[0 : len(sp) - 2]
+            else:
+                sp = ""
             noms_l.append(sp)
 
     return noms_l
