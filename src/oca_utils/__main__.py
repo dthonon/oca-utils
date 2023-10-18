@@ -56,8 +56,25 @@ def noms(tags: List[str]) -> List[str]:
             else:
                 sp = "Inconnu"
             noms_l.append(sp)
-
     return noms_l
+
+
+def qte(tags: List[str]) -> List[str]:
+    """Extraction des quantités d'individus."""
+    qte_l = []
+    qte_re = re.compile(r"Quantité.*")
+    nb_re = re.compile(r"((\w|\s)+)_(\d+)")
+    for t in tags:
+        if qte_re.match(t):
+            # Le tag commence par Quantité et contient une chaîne
+            # indiquant l'indice de l'espèce et sa quantité
+            nbr = re.search(nb_re, t.split("/")[-1])
+            if nbr:
+                nb = {nbr.group(1): nbr.group(3)}
+            else:
+                nb = "1"
+            qte_l.append(nb)
+    return qte_l
 
 
 @main.command()
@@ -75,9 +92,16 @@ def liste(ctx: click.Context) -> None:
         tags = tags["rdf:Seq"]["rdf:li"]
         racine = f.name[0 : len(f.name) - 8]
         sp = noms(tags)
+        nb = qte(tags)
         for s in sp:
-            dest = racine + "_" + s
-            print(f"Vidéo {f.name} copiée ver : {dest}")
+            qt = 1
+            for n in nb:
+                if s in n:
+                    qt = int(n[s])
+                else:
+                    qt = max(1, qt)
+            dest = racine + "_" + s + "_" + str(qt) + ".mp4"
+            print(f"Vidéo {f.name} copiée vers : {dest}")
 
 
 if __name__ == "__main__":
