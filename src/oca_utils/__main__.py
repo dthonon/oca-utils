@@ -79,7 +79,7 @@ def qte(tags: List[str]) -> List[Dict[str, str]]:
 
 
 def renomme(sp: str) -> str:
-    """Renommage des espèces au format OCA"""
+    """Renommage des espèces au format OCA."""
     corresp = {
         "Renard roux": "Renard",
         "Blaireau européen": "Blaireau",
@@ -101,12 +101,12 @@ def liste(ctx: click.Context) -> None:
 
     logging.info(f"Liste des vidéos à traiter dans {input_directory}")
     files = [f for f in Path(input_directory).glob("*.mp4.xmp")]
+    seq = 1
     for f in files:
         with open(f) as fd:
             sidecar = xmltodict.parse(fd.read(), process_namespaces=False)
         tags = sidecar["x:xmpmeta"]["rdf:RDF"]["rdf:Description"]["digiKam:TagsList"]
         tags = tags["rdf:Seq"]["rdf:li"]
-        racine = f.name[0 : len(f.name) - 8]
         sp = noms(tags)
         nb = qte(tags)
         for s in sp:
@@ -116,6 +116,9 @@ def liste(ctx: click.Context) -> None:
                     qt = int(n[s])
                 else:
                     qt = max(1, qt)
+            # Création du préfixe IMG_nnnn
+            racine = f"IMG_{seq:4d}"
+            seq += 1
             dest = racine + "_" + renomme(s) + "_" + str(qt) + ".mp4"
             print(f"Vidéo {f.name} copiée vers : {dest}")
 
