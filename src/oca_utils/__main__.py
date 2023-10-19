@@ -59,7 +59,7 @@ def noms(tags: List[str]) -> List[str]:
     return noms_l
 
 
-def qte(tags: List[str]) -> List[str]:
+def qte(tags: List[str]) -> List[dict]:
     """Extraction des quantités d'individus."""
     qte_l = []
     qte_re = re.compile(r"Quantité.*")
@@ -72,7 +72,7 @@ def qte(tags: List[str]) -> List[str]:
             if nbr:
                 nb = {nbr.group(1): nbr.group(3)}
             else:
-                nb = "1"
+                nb = {"Inconnu": "1"}
             qte_l.append(nb)
     return qte_l
 
