@@ -2,7 +2,8 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
+from typing import List
 
 import click
 import xmltodict
@@ -77,6 +78,21 @@ def qte(tags: List[str]) -> List[Dict[str, str]]:
     return qte_l
 
 
+def renomme(sp: str) -> str:
+    """Renommage des espèces au format OCA"""
+    corresp = {
+        "Renard roux": "Renard",
+        "Blaireau européen": "Blaireau",
+        "Cerf élaphe": "Cerf ela",
+        "Lagopède alpin": "Lagopede",
+    }
+    if sp in corresp:
+        renom = corresp[sp]
+    else:
+        renom = sp
+    return renom
+
+
 @main.command()
 @click.pass_context
 def liste(ctx: click.Context) -> None:
@@ -100,7 +116,7 @@ def liste(ctx: click.Context) -> None:
                     qt = int(n[s])
                 else:
                     qt = max(1, qt)
-            dest = racine + "_" + s + "_" + str(qt) + ".mp4"
+            dest = racine + "_" + renomme(s) + "_" + str(qt) + ".mp4"
             print(f"Vidéo {f.name} copiée vers : {dest}")
 
 
