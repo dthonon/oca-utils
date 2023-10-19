@@ -24,6 +24,7 @@ types-xmltodict = "^0.13.0.3"
 deface = "^1.5.0"
 onnx = "^1.14.1"
 onnxruntime-gpu = "^1.16.1"
+unidecode = "^1.3.7"
 
 [tool.poetry.dev-dependencies]
 Pygments = ">=2.10.0"

@@ -7,6 +7,7 @@ from typing import List
 
 import click
 import xmltodict
+from unidecode import unidecode
 
 
 logging.basicConfig(
@@ -68,7 +69,7 @@ def qte(tags: List[str]) -> List[Dict[str, str]]:
     for t in tags:
         if qte_re.match(t):
             # Le tag commence par Quantité et contient une chaîne
-            # indiquant l'indice de l'espèce et sa quantité
+            # indiquant l'espèce et sa quantité
             nbr = re.search(nb_re, t.split("/")[-1])
             if nbr:
                 nb = {nbr.group(1): nbr.group(3)}
@@ -78,19 +79,32 @@ def qte(tags: List[str]) -> List[Dict[str, str]]:
     return qte_l
 
 
+def details(tags: List[str]) -> List[Dict[str, str]]:
+    """Extraction des détails par espèce."""
+    det_l = []
+    det_re = re.compile(r"Détails.*")
+    détails_re = re.compile(r"((\w|\s)+)_((\w|\s)+)")
+    for t in tags:
+        if det_re.match(t):
+            # Le tag commence par Détails et contient une chaîne
+            # indiquant l'indice de l'espèce et ses détails
+            détails = re.search(détails_re, t.split("/")[-1])
+            if détails:
+                détail = {détails.group(1): détails.group(3)}
+            else:
+                détail = {"Inconnu": ""}
+            det_l.append(détail)
+    return det_l
+
+
 def renomme(sp: str) -> str:
     """Renommage des espèces au format OCA."""
-    corresp = {
-        "Renard roux": "Renard",
-        "Blaireau européen": "Blaireau",
-        "Cerf élaphe": "Cerf ela",
-        "Lagopède alpin": "Lagopede",
-    }
+    corresp = {"Canidés": "CANIDE SP"}
     if sp in corresp:
         renom = corresp[sp]
     else:
         renom = sp
-    return renom
+    return unidecode(renom)
 
 
 @main.command()
@@ -109,6 +123,7 @@ def liste(ctx: click.Context) -> None:
         tags = tags["rdf:Seq"]["rdf:li"]
         sp = noms(tags)
         nb = qte(tags)
+        det = details(tags)
         for s in sp:
             qt = 1
             for n in nb:
@@ -116,10 +131,19 @@ def liste(ctx: click.Context) -> None:
                     qt = int(n[s])
                 else:
                     qt = max(1, qt)
+            de = ""
+            for d in det:
+                if s in d:
+                    de = d[s]
             # Création du préfixe IMG_nnnn
             racine = f"IMG_{seq:4d}"
             seq += 1
-            dest = racine + "_" + renomme(s) + "_" + str(qt) + ".mp4"
+            if len(de) == 0:
+                # Pas de détails
+                dest = racine + "_" + renomme(s) + "_" + str(qt) + ".mp4"
+            else:
+                # Avec détails
+                dest = racine + "_" + renomme(s) + "_" + str(qt) + "_" + de + ".mp4"
             print(f"Vidéo {f.name} copiée vers : {dest}")
 
 
