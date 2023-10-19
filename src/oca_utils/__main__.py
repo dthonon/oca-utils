@@ -2,7 +2,7 @@
 import logging
 import re
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import click
 import xmltodict
@@ -59,7 +59,7 @@ def noms(tags: List[str]) -> List[str]:
     return noms_l
 
 
-def qte(tags: List[str]) -> List[dict]:
+def qte(tags: List[str]) -> List[Dict[str, str]]:
     """Extraction des quantités d'individus."""
     qte_l = []
     qte_re = re.compile(r"Quantité.*")
