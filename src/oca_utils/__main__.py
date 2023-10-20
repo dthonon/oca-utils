@@ -19,13 +19,15 @@ logging.basicConfig(
 @click.group()
 @click.option(
     "--input_directory",
-    default=".",
-    help="Répertoire contenant les vidéos à traiter",
+    help="Répertoire feuille contenant les vidéos à traiter",
 )
 @click.option(
     "--output_directory",
-    default=".",
-    help="Répertoire destiné à recevoir les vidéos traitées",
+    help="Répertoire racine destiné à recevoir les vidéos traitées",
+)
+@click.option(
+    "--output_directory",
+    help="Répertoire racine destiné à recevoir les vidéos traitées",
 )
 @click.pass_context
 def main(
@@ -39,6 +41,12 @@ def main(
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
 
+    if not Path(input_directory).is_dir():
+        logging.fatal(f"Le répertoire d'entrée {input_directory} n'est pas valide")
+        raise FileNotFoundError
+    if not Path(output_directory).is_dir():
+        logging.fatal(f"Le répertoire de sortie {output_directory} n'est pas valide")
+        raise FileNotFoundError
     ctx.obj["INPUT_DIRECTORY"] = input_directory
     ctx.obj["OUTPUT_DIRECTORY"] = output_directory
 
@@ -104,17 +112,24 @@ def renomme(sp: str) -> str:
         renom = corresp[sp]
     else:
         renom = sp
-    return unidecode(renom)
+    return renom
 
 
 @main.command()
 @click.pass_context
-def liste(ctx: click.Context) -> None:
+def copie(ctx: click.Context) -> None:
     """Liste des vidéos à traiter."""
     input_directory = ctx.obj["INPUT_DIRECTORY"]
+    output_directory = ctx.obj["OUTPUT_DIRECTORY"]
 
-    logging.info(f"Liste des vidéos à traiter dans {input_directory}")
-    files = [f for f in Path(input_directory).glob("*.mp4.xmp")]
+    in_path = Path(input_directory)
+    logging.info(f"Copie des vidéos depuis {in_path}")
+    loc = input_directory.split("/")
+    out_path = Path(output_directory).joinpath(loc[-3] + "_" + loc[-2])
+    logging.info(f"Copie des vidéos vers {out_path}")
+    out_path.mkdir(exist_ok=True)
+
+    files = [f for f in in_path.glob("*.mp4.xmp")]
     seq = 1
     for f in files:
         with open(f) as fd:
@@ -136,7 +151,7 @@ def liste(ctx: click.Context) -> None:
                 if s in d:
                     de = d[s]
             # Création du préfixe IMG_nnnn
-            racine = f"IMG_{seq:4d}"
+            racine = f"IMG_{seq:04}"
             seq += 1
             if len(de) == 0:
                 # Pas de détails
@@ -144,7 +159,8 @@ def liste(ctx: click.Context) -> None:
             else:
                 # Avec détails
                 dest = racine + "_" + renomme(s) + "_" + str(qt) + "_" + de + ".mp4"
-            print(f"Vidéo {f.name} copiée vers : {dest}")
+            dest = unidecode(dest)
+            print(f"Vidéo {f.name} à copier vers : {dest}")
 
 
 if __name__ == "__main__":
