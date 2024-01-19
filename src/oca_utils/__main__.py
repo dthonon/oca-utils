@@ -18,22 +18,20 @@ logging.basicConfig(
 @click.version_option()
 @click.group()
 @click.option(
-    "--input_directory",
-    help="Répertoire feuille contenant les vidéos à traiter",
+    "--in_dir",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, readable=True),
 )
 @click.option(
-    "--output_directory",
-    help="Répertoire racine destiné à recevoir les vidéos traitées",
-)
-@click.option(
-    "--output_directory",
-    help="Répertoire racine destiné à recevoir les vidéos traitées",
+    "--out_dir",
+    required=True,
+    type=click.Path(exists=False, dir_okay=True, writable=True),
 )
 @click.pass_context
 def main(
     ctx: click.Context,
-    input_directory: str,
-    output_directory: str,
+    in_dir: str,
+    out_dir: str,
 ) -> None:
     """OCA Utils."""
     logging.info("Transfert des vidéos au format OCA")
@@ -41,14 +39,32 @@ def main(
     # by means other than the `if` block below)
     ctx.ensure_object(dict)
 
-    if not Path(input_directory).is_dir():
-        logging.fatal(f"Le répertoire d'entrée {input_directory} n'est pas valide")
+    if not Path(in_dir).is_dir():
+        logging.fatal(f"Le répertoire d'entrée {in_dir} n'est pas valide")
         raise FileNotFoundError
-    if not Path(output_directory).is_dir():
-        logging.fatal(f"Le répertoire de sortie {output_directory} n'est pas valide")
+    if not Path(out_dir).is_dir():
+        logging.fatal(f"Le répertoire de sortie {out_dir} n'est pas valide")
         raise FileNotFoundError
-    ctx.obj["INPUT_DIRECTORY"] = input_directory
-    ctx.obj["OUTPUT_DIRECTORY"] = output_directory
+    ctx.obj["INPUT_DIRECTORY"] = in_dir
+    ctx.obj["OUTPUT_DIRECTORY"] = out_dir
+
+
+@main.command()
+@click.pass_context
+def convertir(ctx: click.Context) -> None:
+    """Convertit les vidéos AVI en mp4."""
+    input_directory = ctx.obj["INPUT_DIRECTORY"]
+    output_directory = ctx.obj["OUTPUT_DIRECTORY"]
+
+    in_path = Path(input_directory)
+    logging.info(f"Conversion des vidéos depuis {in_path}")
+    out_path = Path(output_directory)
+    logging.info(f"Conversion des vidéos vers {out_path}")
+    out_path.mkdir(exist_ok=True)
+
+    files = [f for f in in_path.glob("*.AVI")]
+    for f in files:
+        logging.info(f"Conversion de {f}")
 
 
 def noms(tags: List[str]) -> List[str]:
@@ -117,8 +133,8 @@ def renomme(sp: str) -> str:
 
 @main.command()
 @click.pass_context
-def copie(ctx: click.Context) -> None:
-    """Liste des vidéos à traiter."""
+def copier(ctx: click.Context) -> None:
+    """Copie les vidéos dans le répertoire OCA."""
     input_directory = ctx.obj["INPUT_DIRECTORY"]
     output_directory = ctx.obj["OUTPUT_DIRECTORY"]
 
