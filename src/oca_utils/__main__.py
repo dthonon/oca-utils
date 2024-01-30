@@ -7,6 +7,7 @@ from typing import List
 
 import click
 import xmltodict
+from ffmpeg import FFmpeg
 from unidecode import unidecode
 
 
@@ -65,6 +66,14 @@ def convertir(ctx: click.Context) -> None:
     files = [f for f in in_path.glob("*.AVI")]
     for f in files:
         logging.info(f"Conversion de {f}")
+        ffmpeg = (
+            FFmpeg()
+            .option("y")
+            .option("hwaccel", "cuda")
+            .option("hwaccel_output_format", "cuda")
+            .input(f)
+        )
+        print(ffmpeg.arguments)
 
 
 def noms(tags: List[str]) -> List[str]:
