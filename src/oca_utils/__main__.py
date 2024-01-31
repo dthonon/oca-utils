@@ -1,13 +1,15 @@
 """Command-line interface."""
 import logging
 import re
+import datetime
+import os
 from pathlib import Path
 from typing import Dict
 from typing import List
 
 import click
 import xmltodict
-from ffmpeg import FFmpeg
+from ffmpeg import FFmpeg, Progress
 from unidecode import unidecode
 
 
@@ -65,15 +67,37 @@ def convertir(ctx: click.Context) -> None:
 
     files = [f for f in in_path.glob("*.AVI")]
     for f in files:
-        logging.info(f"Conversion de {f}")
+        g = out_path / f.name
+        g = g.with_suffix(".mp4")
+        logging.info(f"Conversion de {f.name} en {g.name}")
+        mtime = f.stat().st_mtime
+        timestamp_str = datetime.datetime.fromtimestamp(mtime).isoformat(
+            timespec="seconds"
+        )
         ffmpeg = (
             FFmpeg()
             .option("y")
             .option("hwaccel", "cuda")
             .option("hwaccel_output_format", "cuda")
             .input(f)
+            .output(
+                g,
+                {
+                    "map_metadata": "0:s:0",
+                    "metadata": f"creation_time={timestamp_str}",
+                    "vf": "scale_cuda=1280:720",
+                    "c:v": "h264_nvenc",
+                },
+            )
         )
         print(ffmpeg.arguments)
+
+        @ffmpeg.on("progress")
+        def on_progress(progress: Progress) -> None:
+            logging.debug(progress)
+
+        ffmpeg.execute()
+        os.utime(g, (mtime, mtime))
 
 
 def noms(tags: List[str]) -> List[str]:
