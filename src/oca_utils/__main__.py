@@ -77,6 +77,7 @@ def convertir(ctx: click.Context) -> None:
         ffmpeg = (
             FFmpeg()
             .option("y")
+            .option("vsync", "0")
             .option("hwaccel", "cuda")
             .option("hwaccel_output_format", "cuda")
             .input(f)
@@ -85,12 +86,26 @@ def convertir(ctx: click.Context) -> None:
                 {
                     "map_metadata": "0:s:0",
                     "metadata": f"creation_time={timestamp_str}",
-                    "vf": "scale_cuda=1280:720",
+                    "vf": "scale_cuda=1920:1080",
                     "c:v": "h264_nvenc",
+                    "fps_mode": "passthrough",
+                    "preset": "p7",
+                    "tune": "hq",
+                    "b:v": "35M",
+                    "bufsize": "70M",
+                    "maxrate": "50M",
+                    "qmin": "0",
+                    "g": "250",
+                    "bf": "3",
+                    "b_ref_mode": "middle",
+                    "temporal-aq": "1",
+                    "rc-lookahead": "20",
+                    "i_qfactor": "0.75",
+                    "b_qfactor": "1.1",
                 },
             )
         )
-        print(ffmpeg.arguments)
+        # print(ffmpeg.arguments)
 
         @ffmpeg.on("progress")
         def on_progress(progress: Progress) -> None:
