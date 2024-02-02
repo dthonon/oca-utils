@@ -1,4 +1,5 @@
 """Command-line interface."""
+
 import logging
 import re
 import datetime
@@ -77,7 +78,6 @@ def convertir(ctx: click.Context) -> None:
         ffmpeg = (
             FFmpeg()
             .option("y")
-            .option("vsync", "0")
             .option("hwaccel", "cuda")
             .option("hwaccel_output_format", "cuda")
             .input(f)
@@ -86,20 +86,24 @@ def convertir(ctx: click.Context) -> None:
                 {
                     "map_metadata": "0:s:0",
                     "metadata": f"creation_time={timestamp_str}",
-                    "vf": "scale_cuda=1920:1080",
-                    "c:v": "h264_nvenc",
-                    "fps_mode": "passthrough",
+                    # "vf": "scale_cuda=1920:1080",
+                    "c:v": "hevc_nvenc",
                     "preset": "p7",
                     "tune": "hq",
-                    "b:v": "35M",
-                    "bufsize": "70M",
-                    "maxrate": "50M",
+                    "profile": "main10",
+                    "rc": "vbr",
+                    "rc-lookahead": "20",
+                    # "fps_mode": "passthrough",
+                    "multipass": "fullres",
+                    "temporal-aq": "1",
+                    "cq": "10",
+                    # "b:v": "35M",
+                    # "bufsize": "70M",
+                    # "maxrate": "50M",
                     "qmin": "0",
                     "g": "250",
                     "bf": "3",
-                    "b_ref_mode": "middle",
-                    "temporal-aq": "1",
-                    "rc-lookahead": "20",
+                    "b_ref_mode": "each",
                     "i_qfactor": "0.75",
                     "b_qfactor": "1.1",
                 },
