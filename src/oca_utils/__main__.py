@@ -11,7 +11,7 @@ from typing import List
 import click
 import xmltodict
 from ffmpeg import FFmpeg  # type: ignore
-from ffmpeg import Progress  # type: ignore
+from ffmpeg import Progress
 from unidecode import unidecode
 
 
