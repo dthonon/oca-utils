@@ -9,6 +9,7 @@ from typing import Dict
 from typing import List
 
 import click
+import exiftool
 import xmltodict
 from ffmpeg import FFmpeg  # type: ignore
 from ffmpeg import Progress
@@ -68,59 +69,68 @@ def convertir(ctx: click.Context) -> None:
     out_path.mkdir(exist_ok=True)
 
     video_pat = r"\.(AVI|avi|MP4|mp4)"
-    for f in [f for f in in_path.glob("*.*")]:
-        if re.match(video_pat, f.suffix):
-            g = out_path / f"{f.stem}_c.mp4"
-            # g = g.with_suffix(".mp4")
-            logging.info(f"Conversion de {f.name} en {g.name}")
-            mtime = f.stat().st_mtime
-            timestamp_str = datetime.datetime.fromtimestamp(mtime).isoformat(
-                timespec="seconds"
-            )
-            ffmpeg = (
-                FFmpeg()
-                .option("y")
-                .option("hwaccel", "cuda")
-                .option("hwaccel_output_format", "cuda")
-                .input(f)
-                .output(
-                    g,
-                    {
-                        "map_metadata": "0:s:0",
-                        "metadata": f"creation_time={timestamp_str}",
-                        # "vf": "scale_cuda=1920:1080",
-                        "c:v": "hevc_nvenc",
-                        "preset": "p7",
-                        "tune": "hq",
-                        "profile": "main",
-                        "rc": "vbr",
-                        "rc-lookahead": "60",
-                        "fps_mode": "passthrough",
-                        "multipass": "fullres",
-                        "temporal-aq": "1",
-                        "spatial-aq": "1",
-                        "aq-strength": "12",
-                        "cq": "24",
-                        "b:v": "0M",
-                        "bufsize": "500M",
-                        "maxrate": "250M",
-                        "qmin": "0",
-                        "g": "250",
-                        "bf": "3",
-                        "b_ref_mode": "each",
-                        "i_qfactor": "0.75",
-                        "b_qfactor": "1.1",
-                    },
+    with exiftool.ExifToolHelper() as et:
+        for f in [f for f in in_path.glob("*.*")]:
+            if re.match(video_pat, f.suffix):
+                g = out_path / f"{f.stem}_c.mp4"
+                # g = g.with_suffix(".mp4")
+                logging.info(f"Conversion de {f.name} en {g.name}")
+                mtime = f.stat().st_mtime
+                timestamp_str = datetime.datetime.fromtimestamp(mtime).isoformat(
+                    timespec="seconds"
                 )
-            )
-            # print(ffmpeg.arguments)
+                ffmpeg = (
+                    FFmpeg()
+                    .option("y")
+                    .option("hwaccel", "cuda")
+                    .option("hwaccel_output_format", "cuda")
+                    .input(f)
+                    .output(
+                        g,
+                        {
+                            "map_metadata": "0:s:0",
+                            "metadata": f"creation_time={timestamp_str}",
+                            # "vf": "scale_cuda=1920:1080",
+                            "c:v": "hevc_nvenc",
+                            "preset": "p7",
+                            "tune": "hq",
+                            "profile": "main",
+                            "rc": "vbr",
+                            "rc-lookahead": "60",
+                            "fps_mode": "passthrough",
+                            "multipass": "fullres",
+                            "temporal-aq": "1",
+                            "spatial-aq": "1",
+                            "aq-strength": "12",
+                            "cq": "24",
+                            "b:v": "0M",
+                            "bufsize": "500M",
+                            "maxrate": "250M",
+                            "qmin": "0",
+                            "g": "250",
+                            "bf": "3",
+                            "b_ref_mode": "each",
+                            "i_qfactor": "0.75",
+                            "b_qfactor": "1.1",
+                        },
+                    )
+                )
+                # print(ffmpeg.arguments)
 
-            @ffmpeg.on("progress")  # type:ignore
-            def on_progress(progress: Progress) -> None:
-                logging.debug(progress)
+                # Execute conversion
+                @ffmpeg.on("progress")  # type:ignore
+                def on_progress(progress: Progress) -> None:
+                    logging.debug(progress)
 
-            ffmpeg.execute()
-            os.utime(g, (mtime, mtime))
+                # ffmpeg.execute()
+
+                # Revert to original timestamp
+                os.utime(g, (mtime, mtime))
+
+                # Copy EXIF tags
+                metadata = et.get_metadata(f)
+                for d in metadata:
+                    print(d)
 
 
 def noms(tags: List[str]) -> List[str]:
