@@ -1,16 +1,17 @@
 """Command-line interface."""
 
-import logging
-import re
 import datetime
+import logging
 import os
+import re
 from pathlib import Path
 from typing import Dict
 from typing import List
 
 import click
 import xmltodict
-from ffmpeg import FFmpeg, Progress
+from ffmpeg import FFmpeg  # type:ignore
+from ffmpeg import Progress  # type:ignore
 from unidecode import unidecode
 
 
