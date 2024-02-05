@@ -1,4 +1,5 @@
 """Sphinx configuration."""
+
 project = "OCA Utils"
 author = "Daniel Thonon"
 copyright = "2023, Daniel Thonon"
