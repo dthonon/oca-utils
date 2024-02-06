@@ -9,7 +9,7 @@ from typing import Dict
 from typing import List
 
 import click
-import exiftool
+import exiftool  # type: ignore
 import xmltodict
 from ffmpeg import FFmpeg  # type: ignore
 from ffmpeg import Progress
@@ -122,15 +122,16 @@ def convertir(ctx: click.Context) -> None:
                 def on_progress(progress: Progress) -> None:
                     logging.debug(progress)
 
-                # ffmpeg.execute()
+                ffmpeg.execute()
 
                 # Revert to original timestamp
                 os.utime(g, (mtime, mtime))
 
                 # Copy EXIF tags
-                metadata = et.get_metadata(f)
-                for d in metadata:
-                    print(d)
+                fx = Path(str(f) + ".xmp")
+                gx = Path(str(g) + ".xmp")
+                if fx.exists():
+                    et.execute("-Tagsfromfile", str(fx), str(gx))
 
 
 def noms(tags: List[str]) -> List[str]:
