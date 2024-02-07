@@ -29,6 +29,7 @@ python-ffmpeg = "^2.0.10"
 matplotlib = "^3.8.2"
 plotbitrate = "^1.1.2.0"
 pyexiftool = "^0.5.6"
+pyyaml = "^6.0.1"
 
 [tool.poetry.dev-dependencies]
 Pygments = ">=2.10.0"
