@@ -4,6 +4,7 @@ import datetime
 import logging
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import Dict
 from typing import List
@@ -188,8 +189,8 @@ def details(tags: List[str]) -> List[Dict[str, str]]:
     return det_l
 
 
-def renomme(sp: str) -> str:
-    """Renommage des espèces au format OCA."""
+def corrige(sp: str) -> str:
+    """Correction des cas particuliers des espèces au format OCA."""
     corresp = {"Canidés": "CANIDE SP"}
     if sp in corresp:
         renom = corresp[sp]
@@ -200,50 +201,78 @@ def renomme(sp: str) -> str:
 
 @main.command()
 @click.pass_context
-def copier(ctx: click.Context) -> None:
-    """Copie les vidéos dans le répertoire OCA."""
+def renommer(ctx: click.Context) -> None:
+    """Renomme les photos et vidéos au format OCA."""
     input_directory = ctx.obj["INPUT_DIRECTORY"]
     output_directory = ctx.obj["OUTPUT_DIRECTORY"]
 
     in_path = Path(input_directory)
-    logging.info(f"Copie des vidéos depuis {in_path}")
-    loc = input_directory.split("/")
-    out_path = Path(output_directory).joinpath(loc[-3] + "_" + loc[-2])
-    logging.info(f"Copie des vidéos vers {out_path}")
+    logging.info(f"Renommage des photos et vidéos depuis {in_path}")
+    out_path = Path(output_directory)
+    logging.info(f"Renommage des photos et vidéos vers {out_path}")
     out_path.mkdir(exist_ok=True)
 
-    files = [f for f in in_path.glob("*.mp4.xmp")]
-    seq = 1
-    for f in files:
-        with open(f) as fd:
-            sidecar = xmltodict.parse(fd.read(), process_namespaces=False)
-        tags = sidecar["x:xmpmeta"]["rdf:RDF"]["rdf:Description"]["digiKam:TagsList"]
-        tags = tags["rdf:Seq"]["rdf:li"]
-        sp = noms(tags)
-        nb = qte(tags)
-        det = details(tags)
-        for s in sp:
-            qt = 1
-            for n in nb:
-                if s in n:
-                    qt = int(n[s])
-                else:
-                    qt = max(1, qt)
-            de = ""
-            for d in det:
-                if s in d:
-                    de = d[s]
+    # Extraction de la date de création du média
+    video_pat = r"\.(AVI|avi|MP4|mp4)"
+    s_files = []
+    with exiftool.ExifToolHelper() as et:
+        files = in_path.glob("*.*")
+        for f in files:
+            if re.match(video_pat, f.suffix):
+                # Recherche de la date de prise de vue
+                for d in et.get_tags(f, tags=["DateTimeOriginal"]):
+                    dc = d["XMP:DateTimeOriginal"]
+                    s_files.append((dc, f))
+        # Renommage
+        seq = 1
+        for dc, f in sorted(s_files, key=lambda dcf: dcf[0]):
             # Création du préfixe IMG_nnnn
             racine = f"IMG_{seq:04}"
             seq += 1
+            de = ""
+            s = "Inconnu"
+            qt = "1"
+            # for d in det:
+            #     if s in d:
+            #         de = d[s]
             if len(de) == 0:
                 # Pas de détails
-                dest = racine + "_" + renomme(s) + "_" + str(qt) + ".mp4"
+                dest = racine + "_" + corrige(s) + "_" + str(qt) + ".mp4"
             else:
                 # Avec détails
-                dest = racine + "_" + renomme(s) + "_" + str(qt) + "_" + de + ".mp4"
+                dest = racine + "_" + corrige(s) + "_" + str(qt) + "_" + de + ".mp4"
             dest = unidecode(dest)
-            print(f"Vidéo {f.name} à copier vers : {dest}")
+            if input_directory == output_directory:
+                logging.info(f"Photo/Vidéo {f.name}, datée {dc} à renommer en : {dest}")
+                f.rename(out_path / dest)
+                sc = f.with_suffix(f.suffix + ".xmp")
+                if sc.is_file():
+                    dsc = dest + ".xmp"
+                    logging.info(f"Sidecar {sc.name} à renommer en : {dsc}")
+                    sc.rename(out_path / dsc)
+            else:
+                logging.info(f"Photo/Vidéo {f.name} à copier vers : {dest}")
+                shutil.copy(f, dest)
+                sc = f.with_suffix(f.suffix + ".xmp")
+                if sc.is_file():
+                    dsc = dest + ".xmp"
+                    logging.info(f"Sidecar {sc.name} à renommer en : {dsc}")
+                    shutil.copy(sc, dsc)
+
+    # with open(f) as fd:
+    #     sidecar = xmltodict.parse(fd.read(), process_namespaces=False)
+    # tags = sidecar["x:xmpmeta"]["rdf:RDF"]["rdf:Description"]["digiKam:TagsList"]
+    # tags = tags["rdf:Seq"]["rdf:li"]
+    # sp = noms(tags)
+    # nb = qte(tags)
+    # det = details(tags)
+    # for s in sp:
+    #     qt = 1
+    #     for n in nb:
+    #         if s in n:
+    #             qt = int(n[s])
+    #         else:
+    #             qt = max(1, qt)
 
 
 if __name__ == "__main__":
