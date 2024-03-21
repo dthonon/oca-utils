@@ -215,7 +215,7 @@ def renommer(ctx: click.Context) -> None:
     out_path.mkdir(exist_ok=True)
 
     # Extraction de la date de création du média
-    video_pat = r"\.(AVI|avi|MP4|mp4)"
+    video_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
     s_files = []
     with exiftool.ExifToolHelper() as et:
         # Renommage pour éviter les écrasements
@@ -237,15 +237,24 @@ def renommer(ctx: click.Context) -> None:
         for f in files:
             if re.match(video_pat, f.suffix):
                 # Recherche de la date de prise de vue
-                for d in et.get_tags(f, tags=["DateTimeOriginal"]):
-                    dc = d["XMP:DateTimeOriginal"]
+                for d in et.get_tags(f, tags=["CreateDate", "DateTimeOriginal"]):
+                    if "EXIF:DateTimeOriginal" in d:
+                        dc = d["EXIF:DateTimeOriginal"]
+                    elif "XMP:DateTimeOriginal" in d:
+                        dc = d["XMP:DateTimeOriginal"]
+                    elif "XMP:CreateDate" in d:
+                        dc = d["XMP:CreateDate"]
+                    else:
+                        dc = ""
                     s_files.append((dc, f))
         # Renommage
         seq = 1
-        for dc, f in sorted(s_files, key=lambda dcf: dcf[0]):
+        for _dc, f in sorted(s_files, key=lambda dcf: dcf[0]):
             for d in et.get_tags(f, tags=["HierarchicalSubject"]):
-                tags = d["XMP:HierarchicalSubject"]
-                print(tags)
+                if "XMP:HierarchicalSubject" in d:
+                    tags = d["XMP:HierarchicalSubject"]
+                else:
+                    tags = []
 
             sp = noms(tags)
             print(sp)
