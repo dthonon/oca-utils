@@ -4,7 +4,8 @@ import datetime
 import logging
 import os
 import re
-import shutil
+
+# import shutil
 import uuid
 from pathlib import Path
 from typing import Dict
@@ -138,6 +139,85 @@ def convertir(ctx: click.Context) -> None:
                     os.utime(gx, (mtime, mtime))
 
 
+@main.command()
+@click.pass_context
+def renommer(ctx: click.Context) -> None:
+    """Renomme les photos et vidéos au format OCA."""
+    input_directory = ctx.obj["INPUT_DIRECTORY"]
+    output_directory = ctx.obj["OUTPUT_DIRECTORY"]
+
+    in_path = Path(input_directory)
+    logging.info(f"Renommage des photos et vidéos depuis {in_path}")
+    out_path = Path(output_directory)
+    logging.info(f"Renommage des photos et vidéos vers {out_path}")
+    out_path.mkdir(exist_ok=True)
+
+    if input_directory == output_directory:
+        # Extraction de la date de création du média
+        video_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
+        with exiftool.ExifToolHelper() as et:
+            # Renommage temporaire pour éviter les écrasements
+            files = in_path.glob("*")
+            for f in files:
+                if re.match(video_pat, f.suffix):
+                    mtime = f.stat().st_mtime
+                    g = out_path / (uuid.uuid4().hex + f.suffix.lower())
+                    logging.info(f"Photo/Vidéo {f.name} à renommer en : {g.name}")
+                    f.rename(g)
+                    # Retour à la date originelle
+                    os.utime(g, (mtime, mtime))
+
+                    # Copie des tags EXIF vers le nouveau fichier
+                    fx = Path(str(f) + ".xmp")
+                    gx = Path(str(g) + ".xmp")
+                    if fx.exists():
+                        et.execute("-Tagsfromfile", str(fx), str(gx))
+                        fx.unlink()
+                        os.utime(gx, (mtime, mtime))
+
+            # Renommage
+            s_files = []
+            files = in_path.glob("*.*")
+            for f in files:
+                # Liste des fichiers triés par date de prise de vue
+                if re.match(video_pat, f.suffix):
+                    for d in et.get_tags(f, tags=["CreateDate", "DateTimeOriginal"]):
+                        # Recherche de la date de prise de vue
+                        if "EXIF:DateTimeOriginal" in d:
+                            dc = d["EXIF:DateTimeOriginal"]
+                        elif "XMP:DateTimeOriginal" in d:
+                            dc = d["XMP:DateTimeOriginal"]
+                        elif "XMP:CreateDate" in d:
+                            dc = d["XMP:CreateDate"]
+                        else:
+                            dc = ""
+                        s_files.append((dc, f))
+
+            seq = 1  # Numéro de séquence des fichiers
+            for dc, f in sorted(s_files, key=lambda dcf: dcf[0]):
+                # Création du préfixe IMG_nnnn
+                racine = f"IMG_{seq:04}"
+                seq += 1
+                dest = unidecode(racine + f.suffix)
+                logging.info(f"Photo/Vidéo {f.name}, datée {dc} à renommer en : {dest}")
+                mtime = f.stat().st_mtime
+                g = out_path / dest
+                f.rename(g)
+                # Retour à la date originelle
+                os.utime(g, (mtime, mtime))
+
+                # Copie des tags EXIF vers le nouveau fichier
+                fx = Path(str(f) + ".xmp")
+                gx = Path(str(g) + ".xmp")
+                if fx.exists():
+                    et.execute("-Tagsfromfile", str(fx), str(gx))
+                    fx.unlink()
+                    os.utime(gx, (mtime, mtime))
+    else:
+        logging.fatal("Non implémenté")
+        raise NotImplementedError
+
+
 def noms(tags: List[str]) -> List[str]:
     """Extraction des noms d'espèces."""
     noms_l = []
@@ -204,7 +284,7 @@ def corrige(sp: str) -> str:
 
 @main.command()
 @click.pass_context
-def renommer(ctx: click.Context) -> None:
+def copier(ctx: click.Context) -> None:
     """Renomme les photos et vidéos au format OCA."""
     input_directory = ctx.obj["INPUT_DIRECTORY"]
     output_directory = ctx.obj["OUTPUT_DIRECTORY"]
@@ -218,82 +298,50 @@ def renommer(ctx: click.Context) -> None:
     # Extraction de la date de création du média
     video_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
     with exiftool.ExifToolHelper() as et:
-        # Renommage pour éviter les écrasements
-        files = in_path.glob("*")
-        for f in files:
-            if re.match(video_pat, f.suffix):
-                mtime = f.stat().st_mtime
-                g = out_path / (uuid.uuid4().hex + f.suffix.lower())
-                logging.info(f"Photo/Vidéo {f.name} à renommer en : {g.name}")
-                f.rename(g)
-                # Retour à la date originelle
-                os.utime(g, (mtime, mtime))
-
-                # Copie des tags EXIF vers le nouveau fichier
-                fx = Path(str(f) + ".xmp")
-                gx = Path(str(g) + ".xmp")
-                if fx.exists():
-                    et.execute("-Tagsfromfile", str(fx), str(gx))
-                    fx.unlink()
-                    os.utime(gx, (mtime, mtime))
-
         # Renommage
-        s_files = []
         files = in_path.glob("*.*")
-        for f in files:
-            # Liste des fichiers triés par date de prise de vue
-            if re.match(video_pat, f.suffix):
-                for d in et.get_tags(f, tags=["CreateDate", "DateTimeOriginal"]):
-                    # Recherche de la date de prise de vue
-                    if "EXIF:DateTimeOriginal" in d:
-                        dc = d["EXIF:DateTimeOriginal"]
-                    elif "XMP:DateTimeOriginal" in d:
-                        dc = d["XMP:DateTimeOriginal"]
-                    elif "XMP:CreateDate" in d:
-                        dc = d["XMP:CreateDate"]
-                    else:
-                        dc = ""
-                    s_files.append((dc, f))
-
         seq = 1  # Numéro de séquence des fichiers
-        for dc, f in sorted(s_files, key=lambda dcf: dcf[0]):
-            # Recherche des tags de classification
-            for d in et.get_tags(f, tags=["HierarchicalSubject"]):
-                if "XMP:HierarchicalSubject" in d:
-                    tags = d["XMP:HierarchicalSubject"]
-                else:
-                    tags = []
-                if not isinstance(tags, list):
-                    tags = [tags]
-
-            # print(tags)
-            sp = noms(tags)
-            nb = qte(tags)
-            det = details(tags)
-            # logging.info(f"{f.name} : {sp}/{nb}/{det}")
-
-            for s in sp:
-                qt = 1
-                for n in nb:
-                    if s in n:
-                        qt = int(n[s])
+        for f in files:
+            if re.match(video_pat, f.suffix):
+                # Recherche des tags de classification
+                for d in et.get_tags(f, tags=["HierarchicalSubject"]):
+                    if "XMP:HierarchicalSubject" in d:
+                        tags = d["XMP:HierarchicalSubject"]
                     else:
-                        qt = max(1, qt)
-            # Création du préfixe IMG_nnnn
-            racine = f"IMG_{seq:04}"
-            seq += 1
-            de = ""
-            for d in det:
-                if s in d:
-                    de = d[s]
-            if len(de) == 0:
-                # Pas de détails
-                dest = racine + "_" + corrige(s) + "_" + str(qt) + f.suffix
-            else:
-                # Avec détails
-                dest = racine + "_" + corrige(s) + "_" + str(qt) + "_" + de + f.suffix
-            dest = unidecode(dest)
-            if input_directory == output_directory:
+                        tags = []
+                    if not isinstance(tags, list):
+                        tags = [tags]
+
+                # print(tags)
+                sp = noms(tags)
+                nb = qte(tags)
+                det = details(tags)
+                # logging.info(f"{f.name} : {sp}/{nb}/{det}")
+
+                for s in sp:
+                    qt = 1
+                    for n in nb:
+                        if s in n:
+                            qt = int(n[s])
+                        else:
+                            qt = max(1, qt)
+                # Création du préfixe IMG_nnnn
+                racine = f"IMG_{seq:04}"
+                seq += 1
+                de = ""
+                for d in det:
+                    if s in d:
+                        de = d[s]
+                if len(de) == 0:
+                    # Pas de détails
+                    dest = racine + "_" + corrige(s) + "_" + str(qt) + f.suffix
+                else:
+                    # Avec détails
+                    dest = (
+                        racine + "_" + corrige(s) + "_" + str(qt) + "_" + de + f.suffix
+                    )
+                dest = unidecode(dest)
+
                 logging.info(f"Photo/Vidéo {f.name}, datée {dc} à renommer en : {dest}")
                 mtime = f.stat().st_mtime
                 g = out_path / dest
@@ -308,9 +356,6 @@ def renommer(ctx: click.Context) -> None:
                     et.execute("-Tagsfromfile", str(fx), str(gx))
                     fx.unlink()
                     os.utime(gx, (mtime, mtime))
-            else:
-                logging.fatal("Non implémenté")
-                raise NotImplementedError
 
 
 if __name__ == "__main__":
