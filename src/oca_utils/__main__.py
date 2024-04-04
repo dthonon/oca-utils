@@ -174,7 +174,10 @@ def _renommer_seq_date(in_path: Path) -> None:
             # Liste des fichiers triés par date de prise de vue
             if re.match(media_pat, f.suffix):
                 # Extraction de la date de prise de vue
-                for d in et.get_tags(f, tags=["CreateDate", "DateTimeOriginal"]):
+                for d in et.get_tags(
+                    f, tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"]
+                ):
+                    # print(d)
                     # Recherche de la date de prise de vue
                     if "EXIF:DateTimeOriginal" in d:
                         dc = d["EXIF:DateTimeOriginal"]
@@ -182,6 +185,8 @@ def _renommer_seq_date(in_path: Path) -> None:
                         dc = d["XMP:DateTimeOriginal"]
                     elif "XMP:CreateDate" in d:
                         dc = d["XMP:CreateDate"]
+                    elif "QuickTime:MediaCreateDate" in d:
+                        dc = d["QuickTime:MediaCreateDate"]
                     else:
                         dc = ""
                     s_files.append((dc, f))
