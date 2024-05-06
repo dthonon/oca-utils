@@ -2840,13 +2840,13 @@ mpmath = ">=0.19"
 
 [[package]]
 name = "tifffile"
-version = "2024.4.24"
+version = "2024.5.3"
 description = "Read and write TIFF files"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "tifffile-2024.4.24-py3-none-any.whl", hash = "sha256:8d0b982f4b01ace358835ae6c2beb5a70cb7287f5d3a2e96c318bd5befa97b1f"},
-    {file = "tifffile-2024.4.24.tar.gz", hash = "sha256:e329f36ac8ff3bbe7dd04609340be26b03c4b9e9a69235fc3ab33434157c38ea"},
+    {file = "tifffile-2024.5.3-py3-none-any.whl", hash = "sha256:cac4d939156ff7f16d65fd689637808a7b5b3ad58f9c73327fc009b0aa32c7d5"},
+    {file = "tifffile-2024.5.3.tar.gz", hash = "sha256:44521508ecc51ebaf0e47e9748913e9c7331a4e32fb571ff4dfc05cb8f4d8896"},
 ]
 
 [package.dependencies]
