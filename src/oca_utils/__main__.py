@@ -3,6 +3,7 @@
 import datetime
 import logging
 import os
+import random
 import re
 
 # import shutil
@@ -22,59 +23,66 @@ from unidecode import unidecode
 
 media_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
 video_pat = r"\.(AVI|avi|MP4|mp4)"
-correct_pat = r"IMG_\d{4}_\d{8}_\d{6}\..*"
+correct_pat = r"IMG_\d{8}_\d{6}_\d{2}\..*"
 
+logger = logging.getLogger(__name__)
 logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
 @click.version_option()
 @click.group()
+@click.option("--trace", default=False, help="Traces détaillées")
+@click.option("--essai", default=False, help="Mode essai, sans action effectuée")
 @click.option(
-    "--in_dir",
+    "--origine",
     required=True,
     type=click.Path(exists=True, dir_okay=True, readable=True),
+    help="Répertoire des fichiers à traiter",
 )
 @click.option(
-    "--out_dir",
+    "--destination",
     required=False,
-    default="/tmp",
+    default="~/tmp",
     type=click.Path(exists=False, dir_okay=True, writable=True),
+    help="Répertoire de destination des fichiers, pour la commande copier uniquement",
 )
 @click.pass_context
 def main(
     ctx: click.Context,
-    in_dir: str,
-    out_dir: str,
+    trace: bool,
+    essai: bool,
+    origine: str,
+    destination: str,
 ) -> None:
     """OCA Utils."""
     logging.info("Transfert des vidéos au format OCA")
-    # ensure that ctx.obj exists and is a dict (in case `cli()` is called
-    # by means other than the `if` block below)
+    # ensure that ctx.obj exists and is a dict
     ctx.ensure_object(dict)
 
-    if not Path(in_dir).is_dir():
-        logging.fatal(f"Le répertoire d'entrée {in_dir} n'est pas valide")
+    if trace:
+        logger.setLevel(logging.DEBUG)
+
+    if not Path(origine).expanduser().is_dir():
+        logger.fatal(f"Le répertoire d'entrée {origine} n'est pas valide")
         raise FileNotFoundError
-    if not Path(out_dir).is_dir():
-        logging.fatal(f"Le répertoire de sortie {out_dir} n'est pas valide")
+    if not Path(destination).expanduser().is_dir():
+        logger.fatal(f"Le répertoire de sortie {destination} n'est pas valide")
         raise FileNotFoundError
-    ctx.obj["INPUT_DIRECTORY"] = in_dir
-    ctx.obj["OUTPUT_DIRECTORY"] = out_dir
+    ctx.obj["ESSAI"] = essai
+    ctx.obj["ORIGINE"] = origine
+    ctx.obj["DESTINATION"] = destination
 
 
 @main.command()
 @click.pass_context
 def convertir(ctx: click.Context) -> None:
     """Convertit les vidéos AVI en mp4."""
-    input_directory = ctx.obj["INPUT_DIRECTORY"]
-    output_directory = ctx.obj["OUTPUT_DIRECTORY"]
-
-    in_path = Path(input_directory)
-    logging.info(f"Conversion des vidéos depuis {in_path}")
-    out_path = Path(output_directory)
-    logging.info(f"Conversion des vidéos vers {out_path}")
+    in_path = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Conversion des vidéos depuis {in_path}")
+    out_path = Path(ctx.obj["DESTINATION"])
+    logger.info(f"Conversion des vidéos vers {out_path}")
     out_path.mkdir(exist_ok=True)
 
     with exiftool.ExifToolHelper() as et:
@@ -82,68 +90,69 @@ def convertir(ctx: click.Context) -> None:
             if re.match(video_pat, f.suffix):
                 g = out_path / f"{f.stem}_c.mp4"
                 # g = g.with_suffix(".mp4")
-                logging.info(f"Conversion de {f.name} en {g.name}")
-                mtime = f.stat().st_mtime
-                timestamp_str = datetime.datetime.fromtimestamp(mtime).isoformat(
-                    timespec="seconds"
-                )
-                ffmpeg = (
-                    FFmpeg()
-                    .option("y")
-                    .option("hwaccel", "cuda")
-                    .option("hwaccel_output_format", "cuda")
-                    .input(f)
-                    .output(
-                        g,
-                        {
-                            "map_metadata": "0:s:0",
-                            "metadata": f"creation_time={timestamp_str}",
-                            # "vf": "scale_cuda=1920:1080",
-                            "c:v": "hevc_nvenc",
-                            "preset": "p7",
-                            "tune": "hq",
-                            "profile": "main",
-                            "rc": "vbr",
-                            "rc-lookahead": "60",
-                            "fps_mode": "passthrough",
-                            "multipass": "fullres",
-                            "temporal-aq": "1",
-                            "spatial-aq": "1",
-                            "aq-strength": "12",
-                            "cq": "24",
-                            "b:v": "0M",
-                            "bufsize": "500M",
-                            "maxrate": "250M",
-                            "qmin": "0",
-                            "g": "250",
-                            "bf": "3",
-                            "b_ref_mode": "each",
-                            "i_qfactor": "0.75",
-                            "b_qfactor": "1.1",
-                        },
+                logger.info(f"Conversion de {f.name} en {g.name}")
+                if not ctx.obj["ESSAI"]:
+                    mtime = f.stat().st_mtime
+                    timestamp_str = datetime.datetime.fromtimestamp(mtime).isoformat(
+                        timespec="seconds"
                     )
-                )
-                # print(ffmpeg.arguments)
+                    ffmpeg = (
+                        FFmpeg()
+                        .option("y")
+                        .option("hwaccel", "cuda")
+                        .option("hwaccel_output_format", "cuda")
+                        .input(f)
+                        .output(
+                            g,
+                            {
+                                "map_metadata": "0:s:0",
+                                "metadata": f"creation_time={timestamp_str}",
+                                # "vf": "scale_cuda=1920:1080",
+                                "c:v": "hevc_nvenc",
+                                "preset": "p7",
+                                "tune": "hq",
+                                "profile": "main",
+                                "rc": "vbr",
+                                "rc-lookahead": "60",
+                                "fps_mode": "passthrough",
+                                "multipass": "fullres",
+                                "temporal-aq": "1",
+                                "spatial-aq": "1",
+                                "aq-strength": "12",
+                                "cq": "24",
+                                "b:v": "0M",
+                                "bufsize": "500M",
+                                "maxrate": "250M",
+                                "qmin": "0",
+                                "g": "250",
+                                "bf": "3",
+                                "b_ref_mode": "each",
+                                "i_qfactor": "0.75",
+                                "b_qfactor": "1.1",
+                            },
+                        )
+                    )
+                    # print(ffmpeg.arguments)
 
-                # Execute conversion
-                @ffmpeg.on("progress")  # type:ignore
-                def on_progress(progress: Progress) -> None:
-                    logging.debug(progress)
+                    # Execute conversion
+                    @ffmpeg.on("progress")  # type:ignore
+                    def on_progress(progress: Progress) -> None:
+                        logger.debug(progress)
 
-                ffmpeg.execute()
+                    ffmpeg.execute()
 
-                # Retour à la date originelle
-                os.utime(g, (mtime, mtime))
+                    # Retour à la date originelle
+                    os.utime(g, (mtime, mtime))
 
-                # Copie des tags EXIF
-                fx = Path(str(f) + ".xmp")
-                gx = Path(str(g) + ".xmp")
-                if fx.exists():
-                    et.execute("-Tagsfromfile", str(fx), str(gx))
-                    os.utime(gx, (mtime, mtime))
+                    # Copie des tags EXIF
+                    fx = Path(str(f) + ".xmp")
+                    gx = Path(str(g) + ".xmp")
+                    if fx.exists():
+                        et.execute("-Tagsfromfile", str(fx), str(gx))
+                        os.utime(gx, (mtime, mtime))
 
 
-def _renommer_temp(in_path: Path) -> None:
+def _renommer_temp(in_path: Path, ctx: click.Context) -> None:
     # Renommer en UUID, si le fichier n'est pas déjà bien nommé
     with exiftool.ExifToolHelper() as et:
         # Renommage temporaire pour éviter les écrasements
@@ -152,33 +161,38 @@ def _renommer_temp(in_path: Path) -> None:
             if re.match(media_pat, f.suffix) and not re.match(correct_pat, f.name):
                 mtime = f.stat().st_mtime
                 g = in_path / (uuid.uuid4().hex + f.suffix.lower())
-                logging.info(f"Photo/Vidéo {f.name} renommée en : {g.name}")
-                f.rename(g)
-                # Retour à la date originelle
-                os.utime(g, (mtime, mtime))
+                logger.info(f"Photo/Vidéo {f.name} renommée en : {g.name}")
+                if not ctx.obj["ESSAI"]:
+                    f.rename(g)
+                    # Retour à la date originelle
+                    os.utime(g, (mtime, mtime))
 
-                # Copie des tags EXIF vers le nouveau fichier
-                fx = Path(str(f) + ".xmp")
-                gx = Path(str(g) + ".xmp")
-                if fx.exists():
-                    et.execute("-Tagsfromfile", str(fx), str(gx))
-                    fx.unlink()
-                    os.utime(gx, (mtime, mtime))
+                    # Copie des tags EXIF vers le nouveau fichier
+                    fx = Path(str(f) + ".xmp")
+                    gx = Path(str(g) + ".xmp")
+                    if fx.exists():
+                        et.execute("-Tagsfromfile", str(fx), str(gx))
+                        fx.unlink()
+                        os.utime(gx, (mtime, mtime))
+
     return None
 
 
-def _renommer_seq_date(in_path: Path) -> None:
+def _renommer_seq_date(  # noqa: max-complexity=13
+    in_path: Path, ctx: click.Context
+) -> None:
     s_files = []
     files = in_path.glob("*.*")
     with exiftool.ExifToolHelper() as et:
         for f in files:
             # Liste des fichiers triés par date de prise de vue
             if re.match(media_pat, f.suffix) and not re.match(correct_pat, f.name):
+                logger.debug(f.name)
                 # Extraction de la date de prise de vue
                 for d in et.get_tags(
                     f, tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"]
                 ):
-                    # print(d)
+                    logger.debug(d)
                     # Recherche de la date de prise de vue
                     if "EXIF:DateTimeOriginal" in d:
                         dc = d["EXIF:DateTimeOriginal"]
@@ -192,28 +206,29 @@ def _renommer_seq_date(in_path: Path) -> None:
                         dc = ""
                     s_files.append((dc, f))
 
-        seq = 1  # Numéro de séquence des fichiers
         for dc, f in sorted(s_files, key=lambda dcf: dcf[0]):
             # Création du préfixe IMG_nnnn
-            racine = f"IMG_{seq:04}"
-            seq += 1
+            racine = "IMG_"
             # Formattage de la date
             fdate = dc.replace(":", "").replace(" ", "_")
-            dest = unidecode(racine + "_" + fdate + f.suffix)
-            logging.info(f"Photo/Vidéo {f.name}, datée {dc} à renommée en : {dest}")
-            mtime = f.stat().st_mtime
-            g = in_path / dest
-            f.rename(g)
-            # Retour à la date originelle
-            os.utime(g, (mtime, mtime))
+            dest = unidecode(
+                racine + fdate + "_" + f"{random.randrange(10):02}" + f.suffix
+            )
+            logger.info(f"Photo/Vidéo {f.name}, datée {dc} à renommée en : {dest}")
+            if not ctx.obj["ESSAI"]:
+                mtime = f.stat().st_mtime
+                g = in_path / dest
+                f.rename(g)
+                # Retour à la date originelle
+                os.utime(g, (mtime, mtime))
 
-            # Copie des tags EXIF vers le nouveau fichier
-            fx = Path(str(f) + ".xmp")
-            gx = Path(str(g) + ".xmp")
-            if fx.exists():
-                et.execute("-Tagsfromfile", str(fx), str(gx))
-                fx.unlink()
-                os.utime(gx, (mtime, mtime))
+                # Copie des tags EXIF vers le nouveau fichier
+                fx = Path(str(f) + ".xmp")
+                gx = Path(str(g) + ".xmp")
+                if fx.exists():
+                    et.execute("-Tagsfromfile", str(fx), str(gx))
+                    fx.unlink()
+                    os.utime(gx, (mtime, mtime))
 
     return None
 
@@ -221,17 +236,15 @@ def _renommer_seq_date(in_path: Path) -> None:
 @main.command()
 @click.pass_context
 def renommer(ctx: click.Context) -> None:
-    """Renomme les photos et vidéos au format OCA."""
-    input_directory = ctx.obj["INPUT_DIRECTORY"]
-
-    in_path = Path(input_directory)
-    logging.info(f"Renommage des photos et vidéos depuis {in_path}")
+    """Renomme au format personnel les photos et vidéos."""
+    in_path = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Renommage des photos et vidéos depuis {in_path}")
 
     # Renommage temporaire pour éviter les écrasements de fichier
-    _renommer_temp(in_path)
+    _renommer_temp(in_path, ctx)
 
     # Renommage final
-    _renommer_seq_date(in_path)
+    _renommer_seq_date(in_path, ctx)
 
 
 def noms(tags: List[str]) -> List[str]:
@@ -301,14 +314,11 @@ def corrige(sp: str) -> str:
 @main.command()
 @click.pass_context
 def copier(ctx: click.Context) -> None:
-    """Renomme les photos et vidéos au format OCA."""
-    input_directory = ctx.obj["INPUT_DIRECTORY"]
-    output_directory = ctx.obj["OUTPUT_DIRECTORY"]
-
-    in_path = Path(input_directory)
-    logging.info(f"Renommage des photos et vidéos depuis {in_path}")
-    out_path = Path(output_directory)
-    logging.info(f"Renommage des photos et vidéos vers {out_path}")
+    """Copie et renomme au format OCA les photos et vidéos."""
+    in_path = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Renommage des photos et vidéos depuis {in_path}")
+    out_path = Path(ctx.obj["DESTINATION"])
+    logger.info(f"Renommage des photos et vidéos vers {out_path}")
     out_path.mkdir(exist_ok=True)
 
     # # Extraction de la date de création du média
@@ -332,7 +342,7 @@ def copier(ctx: click.Context) -> None:
     #             sp = noms(tags)
     #             nb = qte(tags)
     #             det = details(tags)
-    #             # logging.info(f"{f.name} : {sp}/{nb}/{det}")
+    #             # logger.info(f"{f.name} : {sp}/{nb}/{det}")
 
     #             for s in sp:
     #                 qt = 1
@@ -354,11 +364,13 @@ def copier(ctx: click.Context) -> None:
     #             else:
     #                 # Avec détails
     #                 dest = (
-    #                     racine + "_" + corrige(s) + "_" + str(qt) + "_" + de + f.suffix
+    #                     racine + "_" + corrige(s) + "_" + str(qt)
+    #                       + "_" + de + f.suffix
     #                 )
     #             dest = unidecode(dest)
 
-    #             logging.info(f"Photo/Vidéo {f.name}, datée {dc} à renommer en : {dest}")
+    #             logger.info(
+    #               f"Photo/Vidéo {f.name}, datée {dc} à renommer en : {dest}")
     #             mtime = f.stat().st_mtime
     #             g = out_path / dest
     #             f.rename(g)
