@@ -3,7 +3,7 @@
 import datetime
 import logging
 import os
-import random
+import secrets
 import re
 
 # import shutil
@@ -212,7 +212,7 @@ def _renommer_seq_date(  # noqa: max-complexity=13
             # Formattage de la date
             fdate = dc.replace(":", "").replace(" ", "_")
             dest = unidecode(
-                racine + fdate + "_" + f"{random.randrange(10):02}" + f.suffix
+                racine + fdate + "_" + f"{secrets.randbelow(10):02}" + f.suffix
             )
             logger.info(f"Photo/Vidéo {f.name}, datée {dc} à renommée en : {dest}")
             if not ctx.obj["ESSAI"]:
