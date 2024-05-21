@@ -3,10 +3,8 @@
 import datetime
 import logging
 import os
-import secrets
 import re
-
-# import shutil
+import secrets
 import uuid
 from pathlib import Path
 from typing import Dict
@@ -309,6 +307,35 @@ def corrige(sp: str) -> str:
     else:
         renom = sp
     return renom
+
+
+@main.command()
+@click.pass_context
+def vérifier(ctx: click.Context) -> None:
+    """Vérification du tagging des photos et vidéos."""
+    in_path = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Vérification du tagging des photos et vidéos dans {in_path}")
+
+    files = in_path.glob("*.*")
+    with exiftool.ExifToolHelper() as et:
+        for f in files:
+            # Liste des fichiers triés par date de prise de vue
+            if re.match(media_pat, f.suffix):
+                logger.debug(f.name)
+
+                # Vérification du nommage
+                if not re.match(correct_pat, f.name):
+                    logger.warning(f"Fichier mal nommé : {f.name}")
+
+                # Recherche des tags de classification
+                for d in et.get_tags(f, tags=["HierarchicalSubject"]):
+                    if "XMP:HierarchicalSubject" in d:
+                        tags = d["XMP:HierarchicalSubject"]
+                    else:
+                        tags = []
+                    if not isinstance(tags, list):
+                        tags = [tags]
+                logger.debug(tags)
 
 
 @main.command()
