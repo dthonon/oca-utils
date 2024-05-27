@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import secrets
-import tempfile
 import uuid
 from pathlib import Path
 from typing import Dict
@@ -79,7 +78,7 @@ def main(
 @main.command()
 @click.pass_context
 def convertir(ctx: click.Context) -> None:
-    """Convertit les vidéos AVI en mp4."""
+    """Convertit les vidéos AVI ou  MP4 en mp4 optimisé."""
     in_path = Path(ctx.obj["ORIGINE"])
     logger.info(f"Conversion des vidéos depuis {in_path}")
     out_path = Path(ctx.obj["DESTINATION"])
