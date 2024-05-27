@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import secrets
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Dict
@@ -16,6 +17,8 @@ import exiftool  # type: ignore
 # import xmltodict
 from ffmpeg import FFmpeg  # type: ignore
 from ffmpeg import Progress
+from rich.console import Console
+from rich.table import Table
 from unidecode import unidecode
 
 
@@ -42,7 +45,7 @@ logging.basicConfig(
 @click.option(
     "--destination",
     required=False,
-    default="~/tmp",
+    default="",
     type=click.Path(exists=False, dir_okay=True, writable=True),
     help="Répertoire de destination des fichiers, pour la commande copier uniquement",
 )
@@ -317,15 +320,22 @@ def vérifier(ctx: click.Context) -> None:
     logger.info(f"Vérification du tagging des photos et vidéos dans {in_path}")
 
     files = in_path.glob("*.*")
+    nb_fic = 0
+    nb_err = 0
+    nb_sp = 0
+    nb_qte = 0
+    nb_det = 0
     with exiftool.ExifToolHelper() as et:
         for f in files:
             # Liste des fichiers triés par date de prise de vue
             if re.match(media_pat, f.suffix):
+                nb_fic += 1
                 logger.debug(f.name)
 
                 # Vérification du nommage
                 if not re.match(correct_pat, f.name):
                     logger.warning(f"Fichier mal nommé : {f.name}")
+                    nb_err += 1
 
                 # Recherche des tags de classification
                 for d in et.get_tags(f, tags=["HierarchicalSubject"]):
@@ -336,6 +346,29 @@ def vérifier(ctx: click.Context) -> None:
                     if not isinstance(tags, list):
                         tags = [tags]
                 logger.debug(tags)
+
+                # Vérification des tags
+                sp = noms(tags)
+                if len(sp) > 0:
+                    nb_sp += 1
+                nb = qte(tags)
+                if len(nb) > 0:
+                    nb_qte += 1
+                det = details(tags)
+                if len(det) > 0:
+                    nb_det += 1
+                logger.debug(f"{f.name} : {sp}/{nb}/{det}")
+
+    table = Table(title=f"Contenu de {in_path.name}")
+    table.add_column("Item", justify="left", no_wrap=True)
+    table.add_column("Valeur", justify="right")
+    table.add_row("Fichiers", str(nb_fic))
+    table.add_row("Fichiers mal nommés", str(nb_err))
+    table.add_row("Tags espèce", str(nb_sp))
+    table.add_row("Tags quantité", str(nb_qte))
+    table.add_row("Tags détails", str(nb_det))
+    console = Console()
+    console.print(table)
 
 
 @main.command()
