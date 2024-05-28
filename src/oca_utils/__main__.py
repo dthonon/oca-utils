@@ -361,8 +361,13 @@ def vérifier(ctx: click.Context) -> None:
     table = Table(title=f"Contenu de {in_path.name}")
     table.add_column("Item", justify="left", no_wrap=True)
     table.add_column("Valeur", justify="right")
-    table.add_row("Fichiers", str(nb_fic))
-    table.add_row("Fichiers mal nommés", str(nb_err))
+    table.add_row("Fichiers", str(nb_fic), style="bold")
+    if nb_err > 0:
+        table.add_row("Fichiers mal nommés", str(nb_err), style="bold bright_red")
+    if nb_sp < nb_fic:
+        table.add_row(
+            "Fichiers sans espèce", str(nb_fic - nb_sp), style="bold bright_red"
+        )
     table.add_row("Tags espèce", str(nb_sp))
     table.add_row("Tags quantité", str(nb_qte))
     table.add_row("Tags détails", str(nb_det))
