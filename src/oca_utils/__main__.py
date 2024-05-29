@@ -12,8 +12,8 @@ from typing import List
 
 import click
 import exiftool  # type: ignore
+import yaml
 
-# import xmltodict
 from ffmpeg import FFmpeg  # type: ignore
 from ffmpeg import Progress
 from rich.console import Console
@@ -313,7 +313,7 @@ def corrige(sp: str) -> str:
 
 @main.command()
 @click.pass_context
-def vérifier(ctx: click.Context) -> None:
+def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     """Vérification du tagging des photos et vidéos."""
     in_path = Path(ctx.obj["ORIGINE"])
     logger.info(f"Vérification du tagging des photos et vidéos dans {in_path}")
@@ -373,6 +373,40 @@ def vérifier(ctx: click.Context) -> None:
     table.add_row("Tags détails", str(nb_det))
     console = Console()
     console.print(table)
+
+
+@main.command()
+@click.pass_context
+def géotagger(ctx: click.Context) -> None:
+    """Géotagging des photos et vidéos."""
+    in_path = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Géotagging des photos et vidéos dans {in_path}")
+
+    with open(in_path / "information.yaml", "r") as info:
+        infos = yaml.safe_load(info)
+        latitude = infos["caméra"]["latitude"]
+        longitude = infos["caméra"]["longitude"]
+        altitude = infos["caméra"]["altitude"]
+        logger.debug(f"Localisation : {latitude}, {longitude}, {altitude}")
+
+    files = in_path.glob("*.*")
+    with exiftool.ExifToolHelper() as et:
+        for f in files:
+            # Liste des fichiers triés par date de prise de vue
+            if re.match(media_pat, f.suffix):
+                fx = Path(str(f) + ".xmp")
+                if fx.is_file():
+                    logger.debug(f"Géotagging de {f.name}")
+                    et.set_tags(
+                        fx,
+                        {
+                            "XMP:GPSLatitude": latitude,
+                            "XMP:GPSLongitude": longitude,
+                            "XMP:GPSAltitude": altitude,
+                        },
+                    )
+                else:
+                    logger.warning(f"Pas de fichier sidecar pour {f.name}")
 
 
 @main.command()
