@@ -382,7 +382,7 @@ def géotagger(ctx: click.Context) -> None:
     in_path = Path(ctx.obj["ORIGINE"])
     logger.info(f"Géotagging des photos et vidéos dans {in_path}")
 
-    with open(in_path / "information.yaml", "r") as info:
+    with open(in_path / "information.yaml") as info:
         infos = yaml.safe_load(info)
         latitude = infos["caméra"]["latitude"]
         longitude = infos["caméra"]["longitude"]
