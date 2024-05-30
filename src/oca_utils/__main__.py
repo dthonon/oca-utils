@@ -13,7 +13,6 @@ from typing import List
 import click
 import exiftool  # type: ignore
 import yaml
-
 from ffmpeg import FFmpeg  # type: ignore
 from ffmpeg import Progress
 from rich.console import Console
