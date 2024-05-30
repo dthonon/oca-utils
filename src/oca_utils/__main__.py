@@ -23,6 +23,7 @@ from unidecode import unidecode
 
 media_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
 video_pat = r"\.(AVI|avi|MP4|mp4)"
+avi_pat = r"\.(AVI|avi)"
 correct_pat = r"IMG_\d{8}_\d{6}_\d{2}\..*"
 
 logger = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ def convertir(ctx: click.Context) -> None:
 
     with exiftool.ExifToolHelper() as et:
         for f in [f for f in in_path.glob("*.*")]:
-            if re.match(video_pat, f.suffix):
+            if re.match(avi_pat, f.suffix):
                 g = out_path / f"{f.stem}_c.mp4"
                 # g = g.with_suffix(".mp4")
                 logger.info(f"Conversion de {f.name} en {g.name}")
