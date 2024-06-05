@@ -425,16 +425,14 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
         nom = infos["caméra"]["nom"]
         p = in_path.parts
         rep_racine = "_".join((nom, re.sub(dept, "", p[-2]), p[-1].replace("_", "")))
-        logger.debug(f"Création du répertoire racine : {rep_racine}")
+        logger.info(f"Création du répertoire racine : {rep_racine}")
         Path(out_path / rep_racine).mkdir(parents=True, exist_ok=True)
         relevés = infos["relevé"]
         for dt in relevés:
             dts = dt.split("/")
             dti = "".join((dts[2], dts[1], dts[0]))
-            logger.debug(f"Création du répertoire daté : {rep_racine}/{dti}")
+            logger.info(f"Création du répertoire daté : {rep_racine}/{dti}")
             Path(out_path / rep_racine / dti).mkdir(parents=True, exist_ok=True)
-
-    return
 
     video_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
     with exiftool.ExifToolHelper() as et:
@@ -443,7 +441,8 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
         files = in_path.glob("*.*")
         for f in files:
             if re.match(video_pat, f.suffix):
-                logger.debug(f"Copie/renommage de {f.name}")
+                date_prise = f.name.split("_")[1]
+                logger.debug(f"Copie/renommage de {f.name}, daté {date_prise}")
                 # Recherche des tags de classification
                 for d in et.get_tags(f, tags=["HierarchicalSubject"]):
                     if "XMP:HierarchicalSubject" in d:
@@ -458,8 +457,12 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 sp = noms(tags)
                 nb = qte(tags)
                 det = details(tags)
-                logger.debug(f"{f.name} : {sp}/{nb}/{det}")
+                logger.debug(f"tags : {sp}/{nb}/{det}")
 
+                # Création du préfixe IMG_nnnn
+                racine = f"IMG_{seq:04}"
+                seq += 1
+                # Parcours des espèces pour copier vers autant de fichiers
                 for s in sp:
                     qt = 1
                     for n in nb:
@@ -467,24 +470,28 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                             qt = int(n[s])
                         else:
                             qt = max(1, qt)
-                # Création du préfixe IMG_nnnn
-                racine = f"IMG_{seq:04}"
-                seq += 1
-                de = ""
-                for d in det:
-                    if s in d:
-                        de = d[s]
-                if len(de) == 0:
-                    # Pas de détails
-                    dest = racine + "_" + corrige(s) + "_" + str(qt) + f.suffix
-                else:
-                    # Avec détails
-                    dest = (
-                        racine + "_" + corrige(s) + "_" + str(qt) + "_" + de + f.suffix
-                    )
-                dest = unidecode(dest)
+                    de = ""
+                    for d in det:
+                        if s in d:
+                            de = d[s]
+                    if len(de) == 0:
+                        # Pas de détails
+                        dest = racine + "_" + corrige(s) + "_" + str(qt) + f.suffix
+                    else:
+                        # Avec détails
+                        dest = (
+                            racine
+                            + "_"
+                            + corrige(s)
+                            + "_"
+                            + str(qt)
+                            + "_"
+                            + de
+                            + f.suffix
+                        )
+                    dest = unidecode(dest)
 
-                logger.info(f"Photo/Vidéo {f.name}, à copier vers : {dest}")
+                    logger.info(f"Photo/Vidéo {f.name}, à copier vers : {dest}")
     #             mtime = f.stat().st_mtime
     #             g = out_path / dest
     #             f.rename(g)
