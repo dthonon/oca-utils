@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import uuid
 from pathlib import Path
 from typing import Dict
@@ -36,6 +37,9 @@ logging.basicConfig(
 @click.option("--trace", default=False, help="Traces détaillées")
 @click.option("--essai", default=False, help="Mode essai, sans action effectuée")
 @click.option(
+    "--force", default=False, help="Force le traitement, même s'il n'est pas nécessaire"
+)
+@click.option(
     "--origine",
     required=True,
     type=click.Path(exists=True, dir_okay=True, readable=True),
@@ -53,6 +57,7 @@ def main(
     ctx: click.Context,
     trace: bool,
     essai: bool,
+    force: bool,
     origine: str,
     destination: str,
 ) -> None:
@@ -71,6 +76,7 @@ def main(
         logger.fatal(f"Le répertoire de sortie {destination} n'est pas valide")
         raise FileNotFoundError
     ctx.obj["ESSAI"] = essai
+    ctx.obj["FORCE"] = force
     ctx.obj["ORIGINE"] = origine
     ctx.obj["DESTINATION"] = destination
 
@@ -158,7 +164,9 @@ def _renommer_temp(in_path: Path, ctx: click.Context) -> None:
         # Renommage temporaire pour éviter les écrasements
         files = in_path.glob("*")
         for f in files:
-            if re.match(media_pat, f.suffix) and not re.match(correct_pat, f.name):
+            if re.match(media_pat, f.suffix) and (
+                ctx.obj["FORCE"] or not re.match(correct_pat, f.name)
+            ):
                 mtime = f.stat().st_mtime
                 g = in_path / (uuid.uuid4().hex + f.suffix.lower())
                 logger.info(f"Photo/Vidéo {f.name} renommée en : {g.name}")
@@ -397,14 +405,15 @@ def géotagger(ctx: click.Context) -> None:
                 fx = Path(str(f) + ".xmp")
                 if fx.is_file():
                     logger.debug(f"Géotagging de {f.name}")
-                    et.set_tags(
-                        fx,
-                        {
-                            "XMP:GPSLatitude": latitude,
-                            "XMP:GPSLongitude": longitude,
-                            "XMP:GPSAltitude": altitude,
-                        },
-                    )
+                    if not ctx.obj["ESSAI"]:
+                        et.set_tags(
+                            fx,
+                            {
+                                "XMP:GPSLatitude": latitude,
+                                "XMP:GPSLongitude": longitude,
+                                "XMP:GPSAltitude": altitude,
+                            },
+                        )
                 else:
                     logger.warning(f"Pas de fichier sidecar pour {f.name}")
 
@@ -427,12 +436,16 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
         rep_racine = "_".join((nom, re.sub(dept, "", p[-2]), p[-1].replace("_", "")))
         logger.info(f"Création du répertoire racine : {rep_racine}")
         Path(out_path / rep_racine).mkdir(parents=True, exist_ok=True)
-        relevés = infos["relevé"]
-        for dt in relevés:
+
+        def date_oca(dt: str) -> str:
             dts = dt.split("/")
-            dti = "".join((dts[2], dts[1], dts[0]))
-            logger.info(f"Création du répertoire daté : {rep_racine}/{dti}")
-            Path(out_path / rep_racine / dti).mkdir(parents=True, exist_ok=True)
+            return "".join((dts[2], dts[1], dts[0]))
+
+        relevés = [date_oca(dt) for dt in infos["relevé"]]
+
+        for dt in relevés:
+            logger.info(f"Création du répertoire daté : {rep_racine}/{dt}")
+            Path(out_path / rep_racine / dt).mkdir(parents=True, exist_ok=True)
 
     video_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
     with exiftool.ExifToolHelper() as et:
@@ -455,6 +468,8 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 # print(tags)
                 # Vérification des tags
                 sp = noms(tags)
+                if len(sp) == 0:
+                    logger.warn(f"Pas d'espèce définie dans {f.name}")
                 nb = qte(tags)
                 det = details(tags)
                 logger.debug(f"tags : {sp}/{nb}/{det}")
@@ -491,20 +506,21 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                         )
                     dest = unidecode(dest)
 
-                    logger.info(f"Photo/Vidéo {f.name}, à copier vers : {dest}")
-    #             mtime = f.stat().st_mtime
-    #             g = out_path / dest
-    #             f.rename(g)
-    #             # Retour à la date originelle
-    #             os.utime(g, (mtime, mtime))
+                    # Recherche du sous-répertoire
+                    for dt in relevés:
+                        ssrep = dt
+                        if date_prise <= dt:
+                            break
+                    logger.info(f"Photo/Vidéo {f.name}, à copier vers : {ssrep}/{dest}")
 
-    #             # Copie des tags EXIF vers le nouveau fichier
-    #             fx = Path(str(f) + ".xmp")
-    #             gx = Path(str(g) + ".xmp")
-    #             if fx.exists():
-    #                 et.execute("-Tagsfromfile", str(fx), str(gx))
-    #                 fx.unlink()
-    #                 os.utime(gx, (mtime, mtime))
+                    # Copie des fichiers
+                    g = Path(out_path / rep_racine / ssrep / dest)
+                    shutil.copy2(f, g)
+
+                    # Copie des tags EXIF vers le nouveau fichier
+                    fx = Path(str(f) + ".xmp")
+                    gx = Path(str(g) + ".xmp")
+                    shutil.copy2(fx, gx)
 
 
 if __name__ == "__main__":
