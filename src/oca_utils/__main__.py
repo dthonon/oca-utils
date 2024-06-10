@@ -522,6 +522,11 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                     gx = Path(str(g) + ".xmp")
                     shutil.copy2(fx, gx)
 
+                    # Retour à la date originelle
+                    mtime = f.stat().st_mtime
+                    os.utime(g, (mtime, mtime))
+                    os.utime(gx, (mtime, mtime))
+
 
 if __name__ == "__main__":
     main(obj={})  # pragma: no cover
