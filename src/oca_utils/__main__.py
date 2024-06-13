@@ -358,6 +358,8 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 sp = noms(tags)
                 if len(sp) > 0:
                     nb_sp += 1
+                else:
+                    logger.warning(f"Fichier sans espèce : {f.name}")
                 nb = qte(tags)
                 if len(nb) > 0:
                     nb_qte += 1
