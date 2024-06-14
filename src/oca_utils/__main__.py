@@ -6,6 +6,8 @@ import os
 import re
 import secrets
 import shutil
+import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Dict
@@ -480,54 +482,92 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 racine = f"IMG_{seq:04}"
                 seq += 1
                 # Parcours des espèces pour copier vers autant de fichiers
-                for s in sp:
-                    qt = 1
-                    for n in nb:
-                        if s in n:
-                            qt = int(n[s])
-                        else:
-                            qt = max(1, qt)
-                    de = ""
-                    for d in det:
-                        if s in d:
-                            de = d[s]
-                    if len(de) == 0:
-                        # Pas de détails
-                        dest = racine + "_" + corrige(s) + "_" + str(qt) + f.suffix
-                    else:
-                        # Avec détails
-                        dest = (
-                            racine
-                            + "_"
-                            + corrige(s)
-                            + "_"
-                            + str(qt)
-                            + "_"
-                            + de
-                            + f.suffix
+                sph = len(
+                    set(sp)
+                    & {
+                        "Agriculteur",
+                        "Chasseur",
+                        "Cueilleur",
+                        "Cycliste",
+                        "Moto",
+                        "Pêcheur",
+                        "Quad",
+                        "Randonneur",
+                        "Traileur",
+                        "Voiture",
+                    }
+                )
+                with tempfile.NamedTemporaryFile(suffix=f.suffix) as fp:
+                    if sph > 0:
+                        # Présence humaine possible => deface
+                        logger.info(f"Deface de {f} vers {fp.name}")
+                        subprocess.run(
+                            [
+                                "/home/daniel/.local/bin/poetry",
+                                "run",
+                                "deface",
+                                "--keep-metadata",
+                                "--execution-provider",
+                                "CUDAExecutionProvider",
+                                "--output",
+                                f"{fp.name}",
+                                f"{f}",
+                            ]
                         )
-                    dest = unidecode(dest)
+                        fi = Path(fp.name)
+                    else:
+                        # Pas d'humain visible
+                        fi = f
+                    for s in sp:
+                        qt = 1
+                        for n in nb:
+                            if s in n:
+                                qt = int(n[s])
+                            else:
+                                qt = max(1, qt)
+                        de = ""
+                        for d in det:
+                            if s in d:
+                                de = d[s]
+                        if len(de) == 0:
+                            # Pas de détails
+                            dest = racine + "_" + corrige(s) + "_" + str(qt) + f.suffix
+                        else:
+                            # Avec détails
+                            dest = (
+                                racine
+                                + "_"
+                                + corrige(s)
+                                + "_"
+                                + str(qt)
+                                + "_"
+                                + de
+                                + f.suffix
+                            )
+                        dest = unidecode(dest)
 
-                    # Recherche du sous-répertoire
-                    for dt in relevés:
-                        ssrep = dt
-                        if date_prise <= dt:
-                            break
-                    logger.info(f"Photo/Vidéo {f.name}, à copier vers : {ssrep}/{dest}")
+                        # Recherche du sous-répertoire
+                        for dt in relevés:
+                            ssrep = dt
+                            if date_prise <= dt:
+                                break
+                        logger.info(
+                            f"Photo/Vidéo {fi.name}, à copier vers : {ssrep}/{dest}"
+                        )
 
-                    # Copie des fichiers
-                    g = Path(out_path / rep_racine / ssrep / dest)
-                    shutil.copy2(f, g)
+                        # Copie des fichiers
+                        g = Path(out_path / rep_racine / ssrep / dest)
+                        shutil.copy2(fi, g)
 
-                    # Copie des tags EXIF vers le nouveau fichier
-                    fx = Path(str(f) + ".xmp")
-                    gx = Path(str(g) + ".xmp")
-                    shutil.copy2(fx, gx)
+                        # Copie des tags EXIF vers le nouveau fichier
+                        fx = Path(str(f) + ".xmp")
+                        gx = Path(str(g) + ".xmp")
+                        shutil.copy2(fx, gx)
 
-                    # Retour à la date originelle
-                    mtime = f.stat().st_mtime
-                    os.utime(g, (mtime, mtime))
-                    os.utime(gx, (mtime, mtime))
+                        # Retour à la date originelle
+                        mtime = f.stat().st_mtime
+                        os.utime(g, (mtime, mtime))
+                        os.utime(gx, (mtime, mtime))
 
 
 if __name__ == "__main__":
