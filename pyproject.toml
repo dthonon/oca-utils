@@ -8,9 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/dthonon/oca-utils"
 repository = "https://github.com/dthonon/oca-utils"
 documentation = "https://oca-utils.readthedocs.io"
-classifiers = [
-    "Development Status :: 3 - Alpha",
-]
+classifiers = ["Development Status :: 3 - Alpha"]
 
 [tool.poetry.urls]
 Changelog = "https://github.com/dthonon/oca-utils/releases"
@@ -33,12 +31,13 @@ pyyaml = "^6.0.1"
 rich = "^13.7.1"
 types-pyyaml = "^6.0.12.20240311"
 cuda-python = "^12.5.0"
-onnxruntime-gpu = {version = "^1.18.0", source = "cuda12"}
+onnxruntime-gpu = { version = "^1.18.0", source = "cuda12" }
+numpy = "<2"
 
 [tool.poetry.dev-dependencies]
 Pygments = ">=2.10.0"
 black = ">=21.10b0"
-coverage = {extras = ["toml"], version = ">=6.2"}
+coverage = { extras = ["toml"], version = ">=6.2" }
 darglint = ">=1.8.1"
 flake8 = ">=4.0.1"
 flake8-bandit = ">=2.1.2"
@@ -58,8 +57,8 @@ sphinx = ">=4.3.2"
 sphinx-autobuild = ">=2021.3.14"
 sphinx-click = ">=3.0.2"
 typeguard = ">=2.13.3"
-xdoctest = {extras = ["colors"], version = ">=0.15.10"}
-myst-parser = {version = ">=0.16.1"}
+xdoctest = { extras = ["colors"], version = ">=0.15.10" }
+myst-parser = { version = ">=0.16.1" }
 
 [tool.poetry.scripts]
 oca-utils = "oca_utils.__main__:main"
