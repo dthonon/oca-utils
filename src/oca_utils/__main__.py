@@ -6,7 +6,7 @@ import os
 import re
 import secrets
 import shutil
-import subprocess
+import subprocess  # noqa: S404
 import tempfile
 import uuid
 from pathlib import Path
@@ -489,19 +489,19 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                         "Chasseur",
                         "Cueilleur",
                         "Cycliste",
-                        "Moto",
+                        # "Moto",
                         "Pêcheur",
-                        "Quad",
+                        # "Quad",
                         "Randonneur",
                         "Traileur",
-                        "Voiture",
+                        # "Voiture",
                     }
                 )
                 with tempfile.NamedTemporaryFile(suffix=f.suffix) as fp:
                     if sph > 0:
                         # Présence humaine possible => deface
                         logger.info(f"Deface de {f} vers {fp.name}")
-                        subprocess.run(
+                        subprocess.run(  # noqa: S603
                             [
                                 "/home/daniel/.local/bin/poetry",
                                 "run",
