@@ -37,7 +37,11 @@ logging.basicConfig(
 @click.version_option()
 @click.group()
 @click.option("--trace", default=False, help="Traces détaillées")
+@click.option("--force", default=False, help="Force le traitement")
 @click.option("--essai", default=False, help="Mode essai, sans action effectuée")
+@click.option(
+    "--incrément", default=True, help="Traitement incrémental depuis le dernier relevé"
+)
 @click.option(
     "--force", default=False, help="Force le traitement, même s'il n'est pas nécessaire"
 )
@@ -58,8 +62,9 @@ logging.basicConfig(
 def main(
     ctx: click.Context,
     trace: bool,
-    essai: bool,
     force: bool,
+    essai: bool,
+    incrément: bool,
     origine: str,
     destination: str,
 ) -> None:
@@ -77,8 +82,9 @@ def main(
     if not Path(destination).expanduser().is_dir():
         logger.fatal(f"Le répertoire de sortie {destination} n'est pas valide")
         raise FileNotFoundError
-    ctx.obj["ESSAI"] = essai
     ctx.obj["FORCE"] = force
+    ctx.obj["ESSAI"] = essai
+    ctx.obj["INCREMENT"] = incrément
     ctx.obj["ORIGINE"] = origine
     ctx.obj["DESTINATION"] = destination
 
@@ -432,6 +438,7 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     logger.info(f"Renommage des photos et vidéos vers {out_path}")
     out_path.mkdir(exist_ok=True)
 
+    # Création des répertoires par date de relevé
     dept = re.compile(r"FR\d\d_")
     with open(in_path / "information.yaml") as info:
         infos = yaml.safe_load(info)
@@ -440,6 +447,7 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
         rep_racine = "_".join((nom, re.sub(dept, "", p[-2]), p[-1].replace("_", "")))
         logger.info(f"Création du répertoire racine : {rep_racine}")
         Path(out_path / rep_racine).mkdir(parents=True, exist_ok=True)
+        shutil.copy2(in_path / "information.yaml", Path(out_path / rep_racine))
 
         def date_oca(dt: str) -> str:
             dts = dt.split("/")
@@ -447,9 +455,15 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
 
         relevés = [date_oca(dt) for dt in infos["relevé"]]
 
-        for dt in relevés:
-            logger.info(f"Création du répertoire daté : {rep_racine}/{dt}")
-            Path(out_path / rep_racine / dt).mkdir(parents=True, exist_ok=True)
+        for dt in sorted(relevés):
+            if Path(out_path / rep_racine / dt).is_dir():
+                # Mémorisation de la date de dernier relevé, pour incrément
+                dernier = dt
+            else:
+                logger.info(f"Création du répertoire par relevé : {rep_racine}/{dt}")
+                Path(out_path / rep_racine / dt).mkdir(parents=True, exist_ok=True)
+
+    logger.info(f"Copie incrémentale depuis {dernier}")
 
     video_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
     with exiftool.ExifToolHelper() as et:
@@ -459,115 +473,118 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
         for f in files:
             if re.match(video_pat, f.suffix):
                 date_prise = f.name.split("_")[1]
-                logger.debug(f"Copie/renommage de {f.name}, daté {date_prise}")
-                # Recherche des tags de classification
-                for d in et.get_tags(f, tags=["HierarchicalSubject"]):
-                    if "XMP:HierarchicalSubject" in d:
-                        tags = d["XMP:HierarchicalSubject"]
-                    else:
-                        tags = []
-                    if not isinstance(tags, list):
-                        tags = [tags]
-
-                # print(tags)
-                # Vérification des tags
-                sp = noms(tags)
-                if len(sp) == 0:
-                    logger.warn(f"Pas d'espèce définie dans {f.name}")
-                nb = qte(tags)
-                det = details(tags)
-                logger.debug(f"tags : {sp}/{nb}/{det}")
-
-                # Création du préfixe IMG_nnnn
-                racine = f"IMG_{seq:04}"
-                seq += 1
-                # Parcours des espèces pour copier vers autant de fichiers
-                sph = len(
-                    set(sp)
-                    & {
-                        "Agriculteur",
-                        "Chasseur",
-                        "Cueilleur",
-                        "Cycliste",
-                        # "Moto",
-                        "Pêcheur",
-                        # "Quad",
-                        "Randonneur",
-                        "Traileur",
-                        # "Voiture",
-                    }
-                )
-                with tempfile.NamedTemporaryFile(suffix=f.suffix) as fp:
-                    if sph > 0:
-                        # Présence humaine possible => deface
-                        logger.info(f"Deface de {f} vers {fp.name}")
-                        subprocess.run(  # noqa: S603
-                            [
-                                "/home/daniel/.local/bin/poetry",
-                                "run",
-                                "deface",
-                                "--keep-metadata",
-                                "--execution-provider",
-                                "CUDAExecutionProvider",
-                                "--output",
-                                f"{fp.name}",
-                                f"{f}",
-                            ]
-                        )
-                        fi = Path(fp.name)
-                    else:
-                        # Pas d'humain visible
-                        fi = f
-                    for s in sp:
-                        qt = 1
-                        for n in nb:
-                            if s in n:
-                                qt = int(n[s])
-                            else:
-                                qt = max(1, qt)
-                        de = ""
-                        for d in det:
-                            if s in d:
-                                de = d[s]
-                        if len(de) == 0:
-                            # Pas de détails
-                            dest = racine + "_" + corrige(s) + "_" + str(qt) + f.suffix
+                if ctx.obj["INCREMENT"] and date_prise > dernier:
+                    logger.debug(f"Copie/renommage de {f.name}, daté {date_prise}")
+                    # Recherche des tags de classification
+                    for d in et.get_tags(f, tags=["HierarchicalSubject"]):
+                        if "XMP:HierarchicalSubject" in d:
+                            tags = d["XMP:HierarchicalSubject"]
                         else:
-                            # Avec détails
-                            dest = (
-                                racine
-                                + "_"
-                                + corrige(s)
-                                + "_"
-                                + str(qt)
-                                + "_"
-                                + de
-                                + f.suffix
+                            tags = []
+                        if not isinstance(tags, list):
+                            tags = [tags]
+
+                    # print(tags)
+                    # Vérification des tags
+                    sp = noms(tags)
+                    if len(sp) == 0:
+                        logger.warn(f"Pas d'espèce définie dans {f.name}")
+                    nb = qte(tags)
+                    det = details(tags)
+                    logger.debug(f"tags : {sp}/{nb}/{det}")
+
+                    # Création du préfixe IMG_nnnn
+                    racine = f"IMG_{seq:04}"
+                    seq += 1
+                    # Parcours des espèces pour copier vers autant de fichiers
+                    sph = len(
+                        set(sp)
+                        & {
+                            "Agriculteur",
+                            "Chasseur",
+                            "Cueilleur",
+                            "Cycliste",
+                            # "Moto",
+                            "Pêcheur",
+                            # "Quad",
+                            "Randonneur",
+                            "Traileur",
+                            # "Voiture",
+                        }
+                    )
+                    with tempfile.NamedTemporaryFile(suffix=f.suffix) as fp:
+                        if sph > 0:
+                            # Présence humaine possible => deface
+                            logger.info(f"Deface de {f} vers {fp.name}")
+                            subprocess.run(  # noqa: S603
+                                [
+                                    "/home/daniel/.local/bin/poetry",
+                                    "run",
+                                    "deface",
+                                    "--keep-metadata",
+                                    "--execution-provider",
+                                    "CUDAExecutionProvider",
+                                    "--output",
+                                    f"{fp.name}",
+                                    f"{f}",
+                                ]
                             )
-                        dest = unidecode(dest)
+                            fi = Path(fp.name)
+                        else:
+                            # Pas d'humain visible
+                            fi = f
+                        for s in sp:
+                            qt = 1
+                            for n in nb:
+                                if s in n:
+                                    qt = int(n[s])
+                                else:
+                                    qt = max(1, qt)
+                            de = ""
+                            for d in det:
+                                if s in d:
+                                    de = d[s]
+                            if len(de) == 0:
+                                # Pas de détails
+                                dest = (
+                                    racine + "_" + corrige(s) + "_" + str(qt) + f.suffix
+                                )
+                            else:
+                                # Avec détails
+                                dest = (
+                                    racine
+                                    + "_"
+                                    + corrige(s)
+                                    + "_"
+                                    + str(qt)
+                                    + "_"
+                                    + de
+                                    + f.suffix
+                                )
+                            dest = unidecode(dest)
 
-                        # Recherche du sous-répertoire
-                        for dt in relevés:
-                            ssrep = dt
-                            if date_prise <= dt:
-                                break
-                        logger.info(
-                            f"Photo/Vidéo {fi.name}, à copier vers : {ssrep}/{dest}"
-                        )
+                            # Recherche du sous-répertoire
+                            for dt in relevés:
+                                ssrep = dt
+                                if date_prise <= dt:
+                                    break
+                            logger.info(
+                                f"Photo/Vidéo {fi.name}, à copier vers : {ssrep}/{dest}"
+                            )
 
-                        # Copie des fichiers
-                        g = Path(out_path / rep_racine / ssrep / dest)
-                        shutil.copy2(fi, g)
+                            # Copie des fichiers
+                            g = Path(out_path / rep_racine / ssrep / dest)
+                            shutil.copy2(fi, g)
 
-                        # Copie des tags EXIF vers le nouveau fichier
-                        fx = Path(str(f) + ".xmp")
-                        gx = Path(str(g) + ".xmp")
-                        shutil.copy2(fx, gx)
+                            # Copie des tags EXIF vers le nouveau fichier
+                            fx = Path(str(f) + ".xmp")
+                            gx = Path(str(g) + ".xmp")
+                            shutil.copy2(fx, gx)
 
-                        # Retour à la date originelle
-                        mtime = f.stat().st_mtime
-                        os.utime(g, (mtime, mtime))
-                        os.utime(gx, (mtime, mtime))
+                            # Retour à la date originelle
+                            mtime = f.stat().st_mtime
+                            os.utime(g, (mtime, mtime))
+                            os.utime(gx, (mtime, mtime))
 
 
 if __name__ == "__main__":
