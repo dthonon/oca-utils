@@ -12,9 +12,12 @@ import uuid
 from pathlib import Path
 from typing import Dict
 from typing import List
+from typing import Optional
 
 import click
 import exiftool  # type: ignore
+import humanize
+import pandas as pd
 import yaml
 from ffmpeg import FFmpeg  # type: ignore
 from ffmpeg import Progress
@@ -24,6 +27,7 @@ from unidecode import unidecode
 
 
 media_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
+photo_pat = r"\.(JPG|jpg)"
 video_pat = r"\.(AVI|avi|MP4|mp4)"
 avi_pat = r"\.(AVI|avi)"
 correct_pat = r"IMG_\d{8}_\d{6}_\d{2}\..*"
@@ -89,20 +93,56 @@ def main(
     ctx.obj["DESTINATION"] = destination
 
 
+def df_to_table(
+    pandas_dataframe: pd.DataFrame,
+    rich_table: Table,
+    show_index: bool = True,
+    index_name: Optional[str] = None,
+) -> Table:
+    """Convert a pandas.DataFrame obj into a rich.Table obj.
+
+    :param pandas_dataframe:
+        A Pandas DataFrame to be converted to a rich Table.
+    :param rich_table:
+        A rich Table that should be populated by the DataFrame values.
+    :param show_index:
+        Add a column with a row count to the table. Defaults to True.
+    :param index_name:
+        The column name to give to the index column. Defaults to None, showing no value.
+
+    :returns:
+        Table: The rich Table instance passed, populated with the DataFrame values.
+    """
+    if show_index:
+        index_name = str(index_name) if index_name else ""
+        rich_table.add_column(index_name)
+        rich_indexes = pandas_dataframe.index.to_list()
+
+    for column in pandas_dataframe.columns:
+        rich_table.add_column(str(column), justify="right")
+
+    for index, value_list in enumerate(pandas_dataframe.values.tolist()):
+        row = [str(rich_indexes[index])] if show_index else []
+        row += [str(x) for x in value_list]
+        rich_table.add_row(*row)
+
+    return rich_table
+
+
 @main.command()
 @click.pass_context
 def convertir(ctx: click.Context) -> None:
     """Convertit les vidéos AVI ou  MP4 en mp4 optimisé."""
-    in_path = Path(ctx.obj["ORIGINE"])
-    logger.info(f"Conversion des vidéos depuis {in_path}")
-    out_path = Path(ctx.obj["DESTINATION"])
-    logger.info(f"Conversion des vidéos vers {out_path}")
-    out_path.mkdir(exist_ok=True)
+    rep_origine = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Conversion des vidéos depuis {rep_origine}")
+    rep_destination = Path(ctx.obj["DESTINATION"])
+    logger.info(f"Conversion des vidéos vers {rep_destination}")
+    rep_destination.mkdir(exist_ok=True)
 
     with exiftool.ExifToolHelper() as et:
-        for f in [f for f in in_path.glob("*.*")]:
+        for f in [f for f in rep_origine.glob("*.*")]:
             if re.match(avi_pat, f.suffix):
-                g = out_path / f"{f.stem}_c.mp4"
+                g = rep_destination / f"{f.stem}_c.mp4"
                 # g = g.with_suffix(".mp4")
                 logger.info(f"Conversion de {f.name} en {g.name}")
                 if not ctx.obj["ESSAI"]:
@@ -162,21 +202,21 @@ def convertir(ctx: click.Context) -> None:
                     fx = Path(str(f) + ".xmp")
                     gx = Path(str(g) + ".xmp")
                     if fx.exists():
-                        et.execute("-Tagsfromfile", str(fx), str(gx))
+                        et.execute("-Tagsfromfile -IPTC:All -XMP:All", str(fx), str(gx))
                         os.utime(gx, (mtime, mtime))
 
 
-def _renommer_temp(in_path: Path, ctx: click.Context) -> None:
+def _renommer_temp(rep_origine: Path, ctx: click.Context) -> None:
     # Renommer en UUID, si le fichier n'est pas déjà bien nommé
     with exiftool.ExifToolHelper() as et:
         # Renommage temporaire pour éviter les écrasements
-        files = in_path.glob("*")
-        for f in files:
+        fichiers = rep_origine.glob("*")
+        for f in fichiers:
             if re.match(media_pat, f.suffix) and (
                 ctx.obj["FORCE"] or not re.match(correct_pat, f.name)
             ):
                 mtime = f.stat().st_mtime
-                g = in_path / (uuid.uuid4().hex + f.suffix.lower())
+                g = rep_origine / (uuid.uuid4().hex + f.suffix.lower())
                 logger.info(f"Photo/Vidéo {f.name} renommée en : {g.name}")
                 if not ctx.obj["ESSAI"]:
                     f.rename(g)
@@ -195,12 +235,12 @@ def _renommer_temp(in_path: Path, ctx: click.Context) -> None:
 
 
 def _renommer_seq_date(  # noqa: max-complexity=13
-    in_path: Path, ctx: click.Context
+    rep_origine: Path, ctx: click.Context
 ) -> None:
-    s_files = []
-    files = in_path.glob("*.*")
+    s_fichiers = []
+    fichiers = rep_origine.glob("*.*")
     with exiftool.ExifToolHelper() as et:
-        for f in files:
+        for f in fichiers:
             # Liste des fichiers triés par date de prise de vue
             if re.match(media_pat, f.suffix) and not re.match(correct_pat, f.name):
                 logger.debug(f.name)
@@ -220,9 +260,9 @@ def _renommer_seq_date(  # noqa: max-complexity=13
                         dc = d["QuickTime:MediaCreateDate"]
                     else:
                         dc = ""
-                    s_files.append((dc, f))
+                    s_fichiers.append((dc, f))
 
-        for dc, f in sorted(s_files, key=lambda dcf: dcf[0]):
+        for dc, f in sorted(s_fichiers, key=lambda dcf: dcf[0]):
             # Création du préfixe IMG_nnnn
             racine = "IMG_"
             # Formattage de la date
@@ -233,7 +273,7 @@ def _renommer_seq_date(  # noqa: max-complexity=13
             logger.info(f"Photo/Vidéo {f.name}, datée {dc} à renommée en : {dest}")
             if not ctx.obj["ESSAI"]:
                 mtime = f.stat().st_mtime
-                g = in_path / dest
+                g = rep_origine / dest
                 f.rename(g)
                 # Retour à la date originelle
                 os.utime(g, (mtime, mtime))
@@ -253,14 +293,14 @@ def _renommer_seq_date(  # noqa: max-complexity=13
 @click.pass_context
 def renommer(ctx: click.Context) -> None:
     """Renomme au format personnel les photos et vidéos."""
-    in_path = Path(ctx.obj["ORIGINE"])
-    logger.info(f"Renommage des photos et vidéos depuis {in_path}")
+    rep_origine = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Renommage des photos et vidéos depuis {rep_origine}")
 
     # Renommage temporaire pour éviter les écrasements de fichier
-    _renommer_temp(in_path, ctx)
+    _renommer_temp(rep_origine, ctx)
 
     # Renommage final
-    _renommer_seq_date(in_path, ctx)
+    _renommer_seq_date(rep_origine, ctx)
 
 
 def noms(tags: List[str]) -> List[str]:
@@ -331,17 +371,17 @@ def corrige(sp: str) -> str:
 @click.pass_context
 def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     """Vérification du tagging des photos et vidéos."""
-    in_path = Path(ctx.obj["ORIGINE"])
-    logger.info(f"Vérification du tagging des photos et vidéos dans {in_path}")
+    rep_origine = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Vérification du tagging des photos et vidéos dans {rep_origine}")
 
-    files = in_path.glob("*.*")
+    fichiers = rep_origine.glob("*.*")
     nb_fic = 0
     nb_err = 0
     nb_sp = 0
     nb_qte = 0
     nb_det = 0
     with exiftool.ExifToolHelper() as et:
-        for f in files:
+        for f in fichiers:
             # Liste des fichiers triés par date de prise de vue
             if re.match(media_pat, f.suffix):
                 nb_fic += 1
@@ -376,7 +416,7 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                     nb_det += 1
                 logger.debug(f"{f.name} : {sp}/{nb}/{det}")
 
-    table = Table(title=f"Contenu de {in_path.name}")
+    table = Table(title=f"Contenu de {rep_origine.name}")
     table.add_column("Item", justify="left", no_wrap=True)
     table.add_column("Valeur", justify="right")
     table.add_row("Fichiers", str(nb_fic), style="bold")
@@ -397,19 +437,19 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
 @click.pass_context
 def géotagger(ctx: click.Context) -> None:
     """Géotagging des photos et vidéos."""
-    in_path = Path(ctx.obj["ORIGINE"])
-    logger.info(f"Géotagging des photos et vidéos dans {in_path}")
+    rep_origine = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Géotagging des photos et vidéos dans {rep_origine}")
 
-    with open(in_path / "information.yaml") as info:
+    with open(rep_origine / "information.yaml") as info:
         infos = yaml.safe_load(info)
         latitude = infos["caméra"]["latitude"]
         longitude = infos["caméra"]["longitude"]
         altitude = infos["caméra"]["altitude"]
         logger.debug(f"Localisation : {latitude}, {longitude}, {altitude}")
 
-    files = in_path.glob("*.*")
+    fichiers = rep_origine.glob("*.*")
     with exiftool.ExifToolHelper() as et:
-        for f in files:
+        for f in fichiers:
             # Liste des fichiers triés par date de prise de vue
             if re.match(media_pat, f.suffix):
                 fx = Path(str(f) + ".xmp")
@@ -432,22 +472,24 @@ def géotagger(ctx: click.Context) -> None:
 @click.pass_context
 def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     """Copie et renomme au format OCA les photos et vidéos."""
-    in_path = Path(ctx.obj["ORIGINE"])
-    logger.info(f"Renommage des photos et vidéos depuis {in_path}")
-    out_path = Path(ctx.obj["DESTINATION"])
-    logger.info(f"Renommage des photos et vidéos vers {out_path}")
-    out_path.mkdir(exist_ok=True)
+    rep_origine = Path(ctx.obj["ORIGINE"])
+    logger.info(f"Renommage des photos et vidéos depuis {rep_origine}")
+    rep_destination = Path(ctx.obj["DESTINATION"])
+    logger.info(f"Renommage des photos et vidéos vers {rep_destination}")
+    rep_destination.mkdir(exist_ok=True)
 
-    # Création des répertoires par date de relevé
+    # Création des chemin par date de relevé
     dept = re.compile(r"FR\d\d_")
-    with open(in_path / "information.yaml") as info:
+    with open(rep_origine / "information.yaml") as info:
         infos = yaml.safe_load(info)
         nom = infos["caméra"]["nom"]
-        p = in_path.parts
+        p = rep_origine.parts
         rep_racine = "_".join((nom, re.sub(dept, "", p[-2]), p[-1].replace("_", "")))
         logger.info(f"Création du répertoire racine : {rep_racine}")
-        Path(out_path / rep_racine).mkdir(parents=True, exist_ok=True)
-        shutil.copy2(in_path / "information.yaml", Path(out_path / rep_racine))
+        Path(rep_destination / rep_racine).mkdir(parents=True, exist_ok=True)
+        shutil.copy2(
+            rep_origine / "information.yaml", Path(rep_destination / rep_racine)
+        )
 
         def date_oca(dt: str) -> str:
             dts = dt.split("/")
@@ -456,24 +498,25 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
         relevés = [date_oca(dt) for dt in infos["relevé"]]
 
         for dt in sorted(relevés):
-            if Path(out_path / rep_racine / dt).is_dir():
+            if Path(rep_destination / rep_racine / dt).is_dir():
                 # Mémorisation de la date de dernier relevé, pour incrément
                 dernier = dt
             else:
                 logger.info(f"Création du répertoire par relevé : {rep_racine}/{dt}")
-                Path(out_path / rep_racine / dt).mkdir(parents=True, exist_ok=True)
+                Path(rep_destination / rep_racine / dt).mkdir(
+                    parents=True, exist_ok=True
+                )
 
-    logger.info(f"Copie incrémentale depuis {dernier}")
-
-    video_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
+    logger.info(f"Copie {'incrémentale' if ctx.obj["INCREMENT"] else 'complète'}"
+                + f" depuis {dernier}")
     with exiftool.ExifToolHelper() as et:
         # Détermination du nom OCA
         seq = 1
-        files = in_path.glob("*.*")
-        for f in files:
-            if re.match(video_pat, f.suffix):
+        fichiers = rep_origine.glob("*.*")
+        for f in fichiers:
+            if re.match(media_pat, f.suffix):
                 date_prise = f.name.split("_")[1]
-                if ctx.obj["INCREMENT"] and date_prise > dernier:
+                if not ctx.obj["INCREMENT"] or date_prise > dernier:
                     logger.debug(f"Copie/renommage de {f.name}, daté {date_prise}")
                     # Recherche des tags de classification
                     for d in et.get_tags(f, tags=["HierarchicalSubject"]):
@@ -573,18 +616,117 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                             )
 
                             # Copie des fichiers
-                            g = Path(out_path / rep_racine / ssrep / dest)
+                            g = Path(rep_destination / rep_racine / ssrep / dest)
                             shutil.copy2(fi, g)
+                            # Retour à la date originelle
+                            mtime = f.stat().st_mtime
+                            os.utime(g, (mtime, mtime))
 
                             # Copie des tags EXIF vers le nouveau fichier
                             fx = Path(str(f) + ".xmp")
                             gx = Path(str(g) + ".xmp")
-                            shutil.copy2(fx, gx)
+                            if fx.exists():
+                                et.execute("-Tagsfromfile -IPTC:All -XMP:All", str(fx), str(gx))
+                                os.utime(gx, (mtime, mtime))
+                            fx = Path(str(f))
+                            gx = Path(str(g))
+                            if fx.exists():
+                                et.execute("-Tagsfromfile -IPTC:All -XMP:All", str(fx), str(gx))
+                                os.utime(gx, (mtime, mtime))
 
-                            # Retour à la date originelle
-                            mtime = f.stat().st_mtime
-                            os.utime(g, (mtime, mtime))
-                            os.utime(gx, (mtime, mtime))
+
+
+@main.command()
+@click.pass_context
+def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
+    """Analyse les photos et vidéos transmises."""
+    rep_destination = Path(ctx.obj["DESTINATION"])
+    logger.info(f"Bilan des photos et vidéos transférées dans {rep_destination}")
+    lg_destination = len(rep_destination.parts)
+
+    # Parcours des répértoires pour chercher les photos et vidéos
+    synthèse = pd.DataFrame(columns=("Répertoire", "Taille", "Photos", "Vidéos"))
+    synthèse.set_index(["Répertoire"], inplace=True)
+    espèces = pd.DataFrame(columns=("Espèce", "Occurrences", "Individus"))
+    espèces.set_index(["Espèce"], inplace=True)
+    with exiftool.ExifToolHelper() as et:
+        for chemin, _dirs, fichiers in rep_destination.walk(on_error=print):
+            chemin_p = chemin.parts
+            if len(chemin_p) == lg_destination + 2 and not chemin_p[-2].startswith("."):
+                # Répertoire contenant les médias
+                # Calcul des tailles et types de médias
+                if chemin_p[-2] in synthèse.index:
+                    synthèse.loc[chemin_p[-2], "Taille"] += sum(  # type: ignore
+                        (chemin / file).stat().st_size for file in fichiers
+                    )
+                    synthèse.loc[chemin_p[-2], "Photos"] += len(  # type: ignore
+                        [f for f in fichiers if re.match(photo_pat, Path(f).suffix)]
+                    )
+                    synthèse.loc[chemin_p[-2], "Vidéos"] += len(  # type: ignore
+                        [f for f in fichiers if re.match(video_pat, Path(f).suffix)]
+                    )
+                else:
+                    synthèse.loc[chemin_p[-2], "Taille"] = sum(
+                        (chemin / file).stat().st_size for file in fichiers
+                    )
+                    synthèse.loc[chemin_p[-2], "Photos"] = len(
+                        [f for f in fichiers if re.match(photo_pat, Path(f).suffix)]
+                    )
+                    synthèse.loc[chemin_p[-2], "Vidéos"] = len(
+                        [f for f in fichiers if re.match(video_pat, Path(f).suffix)]
+                    )
+
+                # Comptage des espèces
+                for f in fichiers:
+                    fp = Path(chemin / f)
+                    if re.match(media_pat, fp.suffix):
+                        logger.debug(f"Analyse du fichier {fp}")
+                        # Recherche des tags de classification
+                        for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
+                            if "XMP:HierarchicalSubject" in d:
+                                tags = d["XMP:HierarchicalSubject"]
+                            else:
+                                tags = []
+                            if not isinstance(tags, list):
+                                tags = [tags]
+                        logger.debug(tags)
+
+                        # Vérification des tags
+                        sp = noms(tags)
+                        nb = qte(tags)
+                        for s in sp:
+                            qt = 1
+                            for n in nb:
+                                if s in n:
+                                    qt = int(n[s])
+                                else:
+                                    qt = max(1, qt)
+                            if s in espèces.index:
+                                espèces.loc[s, "Occurrences"] += 1  # type: ignore
+                                espèces.loc[s, "Individus"] += qt  # type: ignore
+                            else:
+                                espèces.loc[s, "Occurrences"] = 1
+                                espèces.loc[s, "Individus"] = qt
+
+    synthèse.sort_index(inplace=True)
+    total = synthèse.aggregate(func="sum")
+    synthèse.Taille = synthèse.Taille.apply(lambda t: humanize.naturalsize(t))
+    console = Console()
+
+    table_f = Table(title="Synthèse fichiers OCA")
+    table_f = df_to_table(synthèse, table_f)
+    table_f.add_section()
+    table_f.add_row(
+        "TOTAL",
+        humanize.naturalsize(total.Taille),
+        str(total.Photos),
+        str(total.Vidéos),
+    )
+    console.print(table_f)
+
+    table_e = Table(title="Synthèse espèces OCA")
+    espèces.sort_values("Occurrences", inplace=True, ascending=False)
+    console.print(df_to_table(espèces, table_e))
 
 
 if __name__ == "__main__":

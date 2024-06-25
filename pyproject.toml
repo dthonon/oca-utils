@@ -33,6 +33,9 @@ types-pyyaml = "^6.0.12.20240311"
 cuda-python = "^12.5.0"
 onnxruntime-gpu = { version = "^1.18.0", source = "cuda12" }
 numpy = "<2"
+pandas = "^2.2.2"
+humanize = "^4.9.0"
+pandas-stubs = "^2.2.2.240603"
 
 [tool.poetry.dev-dependencies]
 Pygments = ">=2.10.0"
