@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # Usage, inside directory containing AVI: ./convert_apv_mp4.sh

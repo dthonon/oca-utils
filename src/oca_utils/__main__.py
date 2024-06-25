@@ -186,9 +186,8 @@ def convertir(ctx: click.Context) -> None:
                             },
                         )
                     )
-                    # print(ffmpeg.arguments)
 
-                    # Execute conversion
+                    # Conversion vidéo
                     @ffmpeg.on("progress")  # type:ignore
                     def on_progress(progress: Progress) -> None:
                         logger.debug(progress)
@@ -199,10 +198,26 @@ def convertir(ctx: click.Context) -> None:
                     os.utime(g, (mtime, mtime))
 
                     # Copie des tags EXIF
+                    fx = Path(str(f))
+                    gx = Path(str(g))
+                    if fx.exists():
+                        et.execute(
+                            "-Tagsfromfile",
+                            str(fx),
+                            "-IPTC:All",
+                            "-XMP:All",
+                            str(gx),
+                        )
                     fx = Path(str(f) + ".xmp")
                     gx = Path(str(g) + ".xmp")
                     if fx.exists():
-                        et.execute("-Tagsfromfile -IPTC:All -XMP:All", str(fx), str(gx))
+                        et.execute(
+                            "-Tagsfromfile",
+                            str(fx),
+                            "-IPTC:All",
+                            "-XMP:All",
+                            str(gx),
+                        )
                         os.utime(gx, (mtime, mtime))
 
 
@@ -223,14 +238,29 @@ def _renommer_temp(rep_origine: Path, ctx: click.Context) -> None:
                     # Retour à la date originelle
                     os.utime(g, (mtime, mtime))
 
-                    # Copie des tags EXIF vers le nouveau fichier
-                    fx = Path(str(f) + ".xmp")
-                    gx = Path(str(g) + ".xmp")
-                    if fx.exists():
-                        et.execute("-Tagsfromfile", str(fx), str(gx))
-                        fx.unlink()
-                        os.utime(gx, (mtime, mtime))
-
+                # Copie des tags EXIF vers le nouveau fichier
+                fx = Path(str(f))
+                gx = Path(str(g))
+                if fx.exists():
+                    et.execute(
+                        "-Tagsfromfile",
+                        str(fx),
+                        "-IPTC:All",
+                        "-XMP:All",
+                        str(gx),
+                    )
+                fx = Path(str(f) + ".xmp")
+                gx = Path(str(g) + ".xmp")
+                if fx.exists():
+                    et.execute(
+                        "-Tagsfromfile",
+                        str(fx),
+                        "-IPTC:All",
+                        "-XMP:All",
+                        str(gx),
+                    )
+                    fx.unlink()
+                    os.utime(gx, (mtime, mtime))
     return None
 
 
@@ -279,10 +309,26 @@ def _renommer_seq_date(  # noqa: max-complexity=13
                 os.utime(g, (mtime, mtime))
 
                 # Copie des tags EXIF vers le nouveau fichier
+                fx = Path(str(f))
+                gx = Path(str(g))
+                if fx.exists():
+                    et.execute(
+                        "-Tagsfromfile",
+                        str(fx),
+                        "-IPTC:All",
+                        "-XMP:All",
+                        str(gx),
+                    )
                 fx = Path(str(f) + ".xmp")
                 gx = Path(str(g) + ".xmp")
                 if fx.exists():
-                    et.execute("-Tagsfromfile", str(fx), str(gx))
+                    et.execute(
+                        "-Tagsfromfile",
+                        str(fx),
+                        "-IPTC:All",
+                        "-XMP:All",
+                        str(gx),
+                    )
                     fx.unlink()
                     os.utime(gx, (mtime, mtime))
 
@@ -507,8 +553,8 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                     parents=True, exist_ok=True
                 )
 
-    logger.info(f"Copie {'incrémentale' if ctx.obj["INCREMENT"] else 'complète'}"
-                + f" depuis {dernier}")
+    type_cp = "incrémentale" if ctx.obj["INCREMENT"] else "complète"
+    logger.info(f"Copie {type_cp}" + f" depuis {dernier}")
     with exiftool.ExifToolHelper() as et:
         # Détermination du nom OCA
         seq = 1
@@ -626,14 +672,25 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                             fx = Path(str(f) + ".xmp")
                             gx = Path(str(g) + ".xmp")
                             if fx.exists():
-                                et.execute("-Tagsfromfile -IPTC:All -XMP:All", str(fx), str(gx))
+                                et.execute(
+                                    "-Tagsfromfile",
+                                    str(fx),
+                                    "-IPTC:All",
+                                    "-XMP:All",
+                                    str(gx),
+                                )
                                 os.utime(gx, (mtime, mtime))
                             fx = Path(str(f))
                             gx = Path(str(g))
                             if fx.exists():
-                                et.execute("-Tagsfromfile -IPTC:All -XMP:All", str(fx), str(gx))
+                                et.execute(
+                                    "-Tagsfromfile",
+                                    str(fx),
+                                    "-IPTC:All",
+                                    "-XMP:All",
+                                    str(gx),
+                                )
                                 os.utime(gx, (mtime, mtime))
-
 
 
 @main.command()
