@@ -3,6 +3,7 @@
 # Copie des médias au format OCA
 poetry run oca-utils --incrément F --origine /media/data/Digikam/CameraTraps/photos_brutes/FR38_Murianette/La_Pérérée_01 --destination ~/fichiers_oca/ copier
 poetry run oca-utils --incrément F --origine /media/data/Digikam/CameraTraps/photos_brutes/FR38_Revel/Bois_de_l_Epine_01 --destination ~/fichiers_oca/ copier
+poetry run oca-utils --incrément F --origine /media/data/Digikam/CameraTraps/photos_brutes/FR38_Revel/Bois_de_l_Epine_02 --destination ~/fichiers_oca/ copier
 poetry run oca-utils --incrément F --origine /media/data/Digikam/CameraTraps/photos_brutes/FR38_Revel/Le_Pleurey_01 --destination ~/fichiers_oca/ copier
 poetry run oca-utils --incrément F --origine /media/data/Digikam/CameraTraps/photos_brutes/FR38_Revel/Le_Pleurey_02 --destination ~/fichiers_oca/ copier
 poetry run oca-utils --incrément F --origine /media/data/Digikam/CameraTraps/photos_brutes/FR38_Revel/Le_Pleurey_03 --destination ~/fichiers_oca/ copier

@@ -552,6 +552,7 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 Path(rep_destination / rep_racine / dt).mkdir(
                     parents=True, exist_ok=True
                 )
+                dernier = "00000000"
 
     type_cp = "incrémentale" if ctx.obj["INCREMENT"] else "complète"
     logger.info(f"Copie {type_cp}" + f" depuis {dernier}")
