@@ -1673,27 +1673,27 @@ sympy = "*"
 
 [[package]]
 name = "onnxruntime-gpu"
-version = "1.18.0"
+version = "1.18.1"
 description = "ONNX Runtime is a runtime accelerator for Machine Learning models"
 optional = false
 python-versions = "*"
 files = [
-    {file = "onnxruntime_gpu-1.18.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:039be9a6b7f71c6739e97eec79f4bf240793a7c0c4108a09e0e1a27b4c33dbca"},
-    {file = "onnxruntime_gpu-1.18.0-cp310-cp310-win_amd64.whl", hash = "sha256:afd4bc090b9412ab695cb34c05f4f92f88dbb6bd52d9b38658ad0115c50ff653"},
-    {file = "onnxruntime_gpu-1.18.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:2280f94c6be2717f010a73c30a94c2721af853c6b7110e83afa52d03de6614a8"},
-    {file = "onnxruntime_gpu-1.18.0-cp311-cp311-win_amd64.whl", hash = "sha256:9e3b4e9a0171e53a71001805b9b0e1a98cbad5a413d795c0e132b0f058b386d6"},
-    {file = "onnxruntime_gpu-1.18.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:546fbf2dcb7a2830ca69bde0c38665a88a9454e923ebb76bedf85eaed33a6f4a"},
-    {file = "onnxruntime_gpu-1.18.0-cp312-cp312-win_amd64.whl", hash = "sha256:24146aa670c45734d9b8583cd78bd790363bc8695a3808d129ec913186064e4c"},
-    {file = "onnxruntime_gpu-1.18.0-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:75884c51c2aa47c349de3b5485df7f9573e1b89c607dd55984d3fe40615ef002"},
-    {file = "onnxruntime_gpu-1.18.0-cp38-cp38-win_amd64.whl", hash = "sha256:f3b00a7443252dbfbd18ff72bcc2f44066fad9128eaa29bff8b315a834241701"},
-    {file = "onnxruntime_gpu-1.18.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:14f53bd74ad21c61fee55eca988758e5eec4c39450040c8986ec3a960cb127a8"},
-    {file = "onnxruntime_gpu-1.18.0-cp39-cp39-win_amd64.whl", hash = "sha256:aea5c02b3a0ee6682214a61a2a0467773401b075afdcb41dc2ef595f41c2d185"},
+    {file = "onnxruntime_gpu-1.18.1-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4e9a52f5d43a84fe29e135da6bf10daa18836c81bed9060a5924efd6afc0d259"},
+    {file = "onnxruntime_gpu-1.18.1-cp310-cp310-win_amd64.whl", hash = "sha256:e7c1c665e8a11a5cf15369948b04288dc0a6812ad2e6beaff93a3d157c864d9a"},
+    {file = "onnxruntime_gpu-1.18.1-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1334f802cb1e4e2eb6ceebc4ef71ba44f3ef444d34216baafb940368a7a5d2f5"},
+    {file = "onnxruntime_gpu-1.18.1-cp311-cp311-win_amd64.whl", hash = "sha256:0ffcc711e89b80c935d5172544f8a605b11525fc1e6f0e78ee79e2c28956e2d9"},
+    {file = "onnxruntime_gpu-1.18.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bbb1a6c986b2392eebaebc43e198a1614e3f7d2c191725002dbfa0dceb24454b"},
+    {file = "onnxruntime_gpu-1.18.1-cp312-cp312-win_amd64.whl", hash = "sha256:bee352929e6eec2ff4e11e323a025ed8bd5eac24795005bc502ac740971fa7bd"},
+    {file = "onnxruntime_gpu-1.18.1-cp38-cp38-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:76d307a849a863d0457869febe4b2fd2fc07c7f26385c7339d17066312fa6be0"},
+    {file = "onnxruntime_gpu-1.18.1-cp38-cp38-win_amd64.whl", hash = "sha256:b7498d6c64a03558308ce6d7d14dab306ea90d1204b563890c4d2d26c1b520f0"},
+    {file = "onnxruntime_gpu-1.18.1-cp39-cp39-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8a1d8113cb4b8a51b195fae91cfeb6849728462a4b46aaf51b6764c44e54f81f"},
+    {file = "onnxruntime_gpu-1.18.1-cp39-cp39-win_amd64.whl", hash = "sha256:fc1d2544a39f5db64c5b8a0c24d0b934d7d64682e6d70763eb2cc726b1fd6c3f"},
 ]
 
 [package.dependencies]
 coloredlogs = "*"
 flatbuffers = "*"
-numpy = ">=1.21.6"
+numpy = ">=1.21.6,<2.0"
 packaging = "*"
 protobuf = "*"
 sympy = "*"
