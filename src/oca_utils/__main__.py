@@ -531,8 +531,9 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
         nom = infos["caméra"]["nom"]
         p = rep_origine.parts
         rep_racine = "_".join((nom, re.sub(dept, "", p[-2]), p[-1].replace("_", "")))
-        logger.info(f"Création du répertoire racine : {rep_racine}")
-        Path(rep_destination / rep_racine).mkdir(parents=True, exist_ok=True)
+        if not Path(rep_destination / rep_racine).is_dir():
+            logger.info(f"Création du répertoire racine : {rep_racine}")
+            Path(rep_destination / rep_racine).mkdir(parents=False)
         shutil.copy2(
             rep_origine / "information.yaml", Path(rep_destination / rep_racine)
         )
@@ -543,6 +544,7 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
 
         relevés = [date_oca(dt) for dt in infos["relevé"]]
 
+        dernier = "00000000"
         for dt in sorted(relevés):
             if Path(rep_destination / rep_racine / dt).is_dir():
                 # Mémorisation de la date de dernier relevé, pour incrément
@@ -552,7 +554,6 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 Path(rep_destination / rep_racine / dt).mkdir(
                     parents=True, exist_ok=True
                 )
-                dernier = "00000000"
 
     type_cp = "incrémentale" if ctx.obj["INCREMENT"] else "complète"
     logger.info(f"Copie {type_cp}" + f" depuis {dernier}")
