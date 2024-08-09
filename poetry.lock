@@ -568,23 +568,23 @@ test-randomorder = ["pytest-randomly"]
 
 [[package]]
 name = "cuda-python"
-version = "12.5.0"
+version = "12.6.0"
 description = "Python bindings for CUDA"
 optional = false
 python-versions = "*"
 files = [
-    {file = "cuda_python-12.5.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7bbfacbbcfcae149dbc937aa614d362608f20bba973882002fee9125ced32604"},
-    {file = "cuda_python-12.5.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f087acc19ac4b467d71cfb7a39306038993176a7a1459426da50afa0fe68c697"},
-    {file = "cuda_python-12.5.0-cp310-cp310-win_amd64.whl", hash = "sha256:6a462a2d5d2658041a317c113023ce97a609f98c25272b5b1d13e274eecbb941"},
-    {file = "cuda_python-12.5.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:560453304aee0a3bc28a2626e8e3fd1f94fcea58912b4a9156e6ef2a0121f2ba"},
-    {file = "cuda_python-12.5.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4c2f3fc9b8149ffcb4016d8e5ed4ae1d728a55fa02de9b3d2c2c14cda7e4ee8e"},
-    {file = "cuda_python-12.5.0-cp311-cp311-win_amd64.whl", hash = "sha256:62d692bcf4fb71224290610df52ce33760e0b08a8a1bf0652003712d70caf063"},
-    {file = "cuda_python-12.5.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4f76b2c8b7c97174d62f965ad8a518d10b27cd724ad06bb9f0f59ba6f80b492f"},
-    {file = "cuda_python-12.5.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2e7c1d70bf1d6696dfd4a72dfd129cd963b377cfb7ffa9cc6e888101c2b04df4"},
-    {file = "cuda_python-12.5.0-cp312-cp312-win_amd64.whl", hash = "sha256:c58a4a86fd4b71cc072a9dfb4789994bebb9a333085ffa75530672fb6380df6c"},
-    {file = "cuda_python-12.5.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:cece998c45a35d222edca2db623948c9a3bc4fce6e3a4d6d98e6aa245d28a7ec"},
-    {file = "cuda_python-12.5.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b4e9545b69cd3defba350ed9fb7d599c2c558646877a58f8a51ee2cc7a5ad43d"},
-    {file = "cuda_python-12.5.0-cp39-cp39-win_amd64.whl", hash = "sha256:22a09b8f0becad338e6e2c2cc97b72d25823517dd8a355009faf43f345ed7d04"},
+    {file = "cuda_python-12.6.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:dee03e2ba78a807a907a7939dddf089bb8a780faaf7ccbcbfc2461090af11e78"},
+    {file = "cuda_python-12.6.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e177f584094d9c9fd9c7d153168486a3966765c79cb2a80e86feb15e3b5adc14"},
+    {file = "cuda_python-12.6.0-cp310-cp310-win_amd64.whl", hash = "sha256:3b1e9711c6455fabd947076d52eb21ea508ade95eb4dd33838b0339a84238125"},
+    {file = "cuda_python-12.6.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:11fae55fd27977f787eae6c447ad08155c5aff81eff246079f2c01759ec7cac3"},
+    {file = "cuda_python-12.6.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:94dea2aedc5fbe1f89635b1b8f7c7a90b498da27a69e0ca0e1e46d1f78939b39"},
+    {file = "cuda_python-12.6.0-cp311-cp311-win_amd64.whl", hash = "sha256:12b6f4136a4161ba97507dd5a371469471ea0b3f53e1b745979fcb77b4644526"},
+    {file = "cuda_python-12.6.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:78063e643cbde653d8d541f14fd591fc1d631e3010fdda8ab1132d95bc29a693"},
+    {file = "cuda_python-12.6.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:eb755a0825c42ff75d6b113c852b3b9ab580f1a6cde4cb19b57d0495925cd5cc"},
+    {file = "cuda_python-12.6.0-cp312-cp312-win_amd64.whl", hash = "sha256:932681507b0f2005e67fb296db242562670a1f311bc61b9a2dc437c2f7046737"},
+    {file = "cuda_python-12.6.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9be425f9c9a31d16a9ac596fbf5e2673460c38f230c63954e9310a4e8fd1e8bb"},
+    {file = "cuda_python-12.6.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f8889d501af2fad67a918ebe1132136a35935bbc443a7cb3bfa9086c2ad0e59e"},
+    {file = "cuda_python-12.6.0-cp39-cp39-win_amd64.whl", hash = "sha256:92bb5f30afd901bd6c68be974410ad05ebc5d45b6ad22e4faaf1df98a7791c18"},
 ]
 
 [[package]]
