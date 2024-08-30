@@ -2,7 +2,7 @@
 name = "oca-utils"
 version = "0.0.0"
 description = "OCA Utils"
-authors = ["Daniel Thonon <d.thonon9@gmail.com>"]
+authors = ["Daniel Thonon <d.thonon9@outlook.com>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/dthonon/oca-utils"
