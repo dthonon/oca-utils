@@ -3045,13 +3045,13 @@ dev = ["hypothesis (>=6.70.0)", "pytest (>=7.1.0)"]
 
 [[package]]
 name = "tifffile"
-version = "2024.7.24"
+version = "2024.8.28"
 description = "Read and write TIFF files"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "tifffile-2024.7.24-py3-none-any.whl", hash = "sha256:f5cce1a915c37bc44ae4a792e3b42c07a30a3fa88406f5c6060a3de076487ed1"},
-    {file = "tifffile-2024.7.24.tar.gz", hash = "sha256:723456ebf2b4918878ae05a7b50fa366ff3b3a686293317eb7a0f294c3eea050"},
+    {file = "tifffile-2024.8.28-py3-none-any.whl", hash = "sha256:7b618100c9043f2b7f196287ae5e9d139a6f4a0fa603d3698fd5b8f679ca2c66"},
+    {file = "tifffile-2024.8.28.tar.gz", hash = "sha256:a84056c02865d20090235816cddabc99a34493e870effcd119499548583f3204"},
 ]
 
 [package.dependencies]
@@ -3061,6 +3061,7 @@ numpy = "*"
 all = ["defusedxml", "fsspec", "imagecodecs (>=2023.8.12)", "lxml", "matplotlib", "zarr"]
 codecs = ["imagecodecs (>=2023.8.12)"]
 plot = ["matplotlib"]
+test = ["cmapfile", "czifile", "dask", "defusedxml", "fsspec", "imagecodecs", "lfdfiles", "lxml", "ndtiff", "oiffile", "psdtags", "pytest", "roifile", "xarray", "zarr"]
 xml = ["defusedxml", "lxml"]
 zarr = ["fsspec", "zarr"]
 
