@@ -26,11 +26,18 @@ from rich.table import Table
 from unidecode import unidecode
 
 
-media_pat = r"\.(AVI|avi|MP4|mp4|JPG|jpg)"
-photo_pat = r"\.(JPG|jpg)"
-video_pat = r"\.(AVI|avi|MP4|mp4)"
-avi_pat = r"\.(AVI|avi)"
-correct_pat = r"IMG_\d{8}_\d{6}_\d{2}\..*"
+MEDIA_PAT = re.compile(r"\.(AVI|avi|MP4|mp4|JPG|jpg)")
+PHOTO_PAT = re.compile(r"\.(JPG|jpg)")
+VIDEO_PAT = re.compile(r"\.(AVI|avi|MP4|mp4)")
+AVI_PAT = re.compile(r"\.(AVI|avi)")
+CORRECT_PAT = re.compile(r"IMG_\d{8}_\d{6}_\d{2}\..*")
+NATURE_PAT = re.compile(r"Nature.*")
+ESPECE_PAT = re.compile(r"(\w|\s|')+ {")
+QTE_PAT = re.compile(r"Quantité.*")
+NB_PAT = re.compile(r"((\w|\s)+)_(\d+)")
+DET_PAT = re.compile(r"Détails.*")
+DETAILS_PAT = re.compile(r"((\w|\s)+)_((\w|\s)+)")
+DEPT_PAT = re.compile(r"FR\d\d_")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -141,7 +148,7 @@ def convertir(ctx: click.Context) -> None:
 
     with exiftool.ExifToolHelper() as et:
         for f in [f for f in rep_origine.glob("*.*")]:
-            if re.match(avi_pat, f.suffix):
+            if re.match(AVI_PAT, f.suffix):
                 g = rep_destination / f"{f.stem}_c.mp4"
                 # g = g.with_suffix(".mp4")
                 logger.info(f"Conversion de {f.name} en {g.name}")
@@ -208,6 +215,7 @@ def convertir(ctx: click.Context) -> None:
                             "-XMP:All",
                             str(gx),
                         )
+                    gx.with_suffix(".mp4_original").unlink(missing_ok=True)
                     fx = Path(str(f) + ".xmp")
                     gx = Path(str(g) + ".xmp")
                     if fx.exists():
@@ -219,6 +227,7 @@ def convertir(ctx: click.Context) -> None:
                             str(gx),
                         )
                         os.utime(gx, (mtime, mtime))
+                    gx.with_suffix(".xmp_original").unlink(missing_ok=True)
 
 
 def _renommer_temp(rep_origine: Path, ctx: click.Context) -> None:
@@ -227,8 +236,8 @@ def _renommer_temp(rep_origine: Path, ctx: click.Context) -> None:
         # Renommage temporaire pour éviter les écrasements
         fichiers = rep_origine.glob("*")
         for f in fichiers:
-            if re.match(media_pat, f.suffix) and (
-                ctx.obj["FORCE"] or not re.match(correct_pat, f.name)
+            if re.match(MEDIA_PAT, f.suffix) and (
+                ctx.obj["FORCE"] or not re.match(CORRECT_PAT, f.name)
             ):
                 mtime = f.stat().st_mtime
                 g = rep_origine / (uuid.uuid4().hex + f.suffix.lower())
@@ -237,30 +246,33 @@ def _renommer_temp(rep_origine: Path, ctx: click.Context) -> None:
                     f.rename(g)
                     # Retour à la date originelle
                     os.utime(g, (mtime, mtime))
+                    # Copie des tags EXIF vers le nouveau fichier
+                    fx = Path(str(f))
+                    gx = Path(str(g))
+                    if fx.exists():
+                        et.execute(
+                            "-Tagsfromfile",
+                            str(fx),
+                            "-IPTC:All",
+                            "-XMP:All",
+                            str(gx),
+                        )
+                        os.utime(gx, (mtime, mtime))
+                        gx.with_suffix(".mp4_original").unlink(missing_ok=True)
+                    fx = Path(str(f) + ".xmp")
+                    gx = Path(str(g) + ".xmp")
+                    if fx.exists():
+                        et.execute(
+                            "-Tagsfromfile",
+                            str(fx),
+                            "-IPTC:All",
+                            "-XMP:All",
+                            str(gx),
+                        )
+                        fx.unlink()
+                        os.utime(gx, (mtime, mtime))
+                        gx.with_suffix(".xmp_original").unlink(missing_ok=True)
 
-                # Copie des tags EXIF vers le nouveau fichier
-                fx = Path(str(f))
-                gx = Path(str(g))
-                if fx.exists():
-                    et.execute(
-                        "-Tagsfromfile",
-                        str(fx),
-                        "-IPTC:All",
-                        "-XMP:All",
-                        str(gx),
-                    )
-                fx = Path(str(f) + ".xmp")
-                gx = Path(str(g) + ".xmp")
-                if fx.exists():
-                    et.execute(
-                        "-Tagsfromfile",
-                        str(fx),
-                        "-IPTC:All",
-                        "-XMP:All",
-                        str(gx),
-                    )
-                    fx.unlink()
-                    os.utime(gx, (mtime, mtime))
     return None
 
 
@@ -272,7 +284,7 @@ def _renommer_seq_date(  # noqa: max-complexity=13
     with exiftool.ExifToolHelper() as et:
         for f in fichiers:
             # Liste des fichiers triés par date de prise de vue
-            if re.match(media_pat, f.suffix) and not re.match(correct_pat, f.name):
+            if re.match(MEDIA_PAT, f.suffix) and not re.match(CORRECT_PAT, f.name):
                 logger.debug(f.name)
                 # Extraction de la date de prise de vue
                 for d in et.get_tags(
@@ -319,6 +331,8 @@ def _renommer_seq_date(  # noqa: max-complexity=13
                         "-XMP:All",
                         str(gx),
                     )
+                    os.utime(gx, (mtime, mtime))
+                    gx.with_suffix(".mp4_original").unlink(missing_ok=True)
                 fx = Path(str(f) + ".xmp")
                 gx = Path(str(g) + ".xmp")
                 if fx.exists():
@@ -331,6 +345,7 @@ def _renommer_seq_date(  # noqa: max-complexity=13
                     )
                     fx.unlink()
                     os.utime(gx, (mtime, mtime))
+                    gx.with_suffix(".xmp_original").unlink(missing_ok=True)
 
     return None
 
@@ -352,12 +367,11 @@ def renommer(ctx: click.Context) -> None:
 def noms(tags: List[str]) -> List[str]:
     """Extraction des noms d'espèces."""
     noms_l = []
-    nature_re = re.compile(r"Nature.*")
-    sp_re = re.compile(r"(\w|\s|')+ {")
+
     for t in tags:
-        if nature_re.match(t):
+        if NATURE_PAT.match(t):
             # Le tag commence par Nature et se termine par l'espèce
-            spr = re.search(sp_re, t.split("|")[-1])
+            spr = re.search(ESPECE_PAT, t.split("|")[-1])
             if spr:
                 sp = spr.group(0)
                 sp = sp[0 : len(sp) - 2]
@@ -370,13 +384,12 @@ def noms(tags: List[str]) -> List[str]:
 def qte(tags: List[str]) -> List[Dict[str, str]]:
     """Extraction des quantités d'individus."""
     qte_l = []
-    qte_re = re.compile(r"Quantité.*")
-    nb_re = re.compile(r"((\w|\s)+)_(\d+)")
+
     for t in tags:
-        if qte_re.match(t):
+        if QTE_PAT.match(t):
             # Le tag commence par Quantité et contient une chaîne
             # indiquant l'espèce et sa quantité
-            nbr = re.search(nb_re, t.split("|")[-1])
+            nbr = re.search(NB_PAT, t.split("|")[-1])
             if nbr:
                 nb = {nbr.group(1): nbr.group(3)}
             else:
@@ -388,13 +401,12 @@ def qte(tags: List[str]) -> List[Dict[str, str]]:
 def details(tags: List[str]) -> List[Dict[str, str]]:
     """Extraction des détails par espèce."""
     det_l = []
-    det_re = re.compile(r"Détails.*")
-    détails_re = re.compile(r"((\w|\s)+)_((\w|\s)+)")
+
     for t in tags:
-        if det_re.match(t):
+        if DET_PAT.match(t):
             # Le tag commence par Détails et contient une chaîne
             # indiquant l'indice de l'espèce et ses détails
-            détails = re.search(détails_re, t.split("|")[-1])
+            détails = re.search(DETAILS_PAT, t.split("|")[-1])
             if détails:
                 détail = {détails.group(1): détails.group(3)}
             else:
@@ -429,12 +441,12 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     with exiftool.ExifToolHelper() as et:
         for f in fichiers:
             # Liste des fichiers triés par date de prise de vue
-            if re.match(media_pat, f.suffix):
+            if re.match(MEDIA_PAT, f.suffix):
                 nb_fic += 1
                 logger.debug(f.name)
 
                 # Vérification du nommage
-                if not re.match(correct_pat, f.name):
+                if not re.match(CORRECT_PAT, f.name):
                     logger.warning(f"Fichier mal nommé : {f.name}")
                     nb_err += 1
 
@@ -497,7 +509,7 @@ def géotagger(ctx: click.Context) -> None:
     with exiftool.ExifToolHelper() as et:
         for f in fichiers:
             # Liste des fichiers triés par date de prise de vue
-            if re.match(media_pat, f.suffix):
+            if re.match(MEDIA_PAT, f.suffix):
                 fx = Path(str(f) + ".xmp")
                 if fx.is_file():
                     logger.debug(f"Géotagging de {f.name}")
@@ -525,12 +537,13 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     rep_destination.mkdir(exist_ok=True)
 
     # Création des chemin par date de relevé
-    dept = re.compile(r"FR\d\d_")
     with open(rep_origine / "information.yaml") as info:
         infos = yaml.safe_load(info)
         nom = infos["caméra"]["nom"]
         p = rep_origine.parts
-        rep_racine = "_".join((nom, re.sub(dept, "", p[-2]), p[-1].replace("_", "")))
+        rep_racine = "_".join(
+            (nom, re.sub(DEPT_PAT, "", p[-2]), p[-1].replace("_", ""))
+        )
         if not Path(rep_destination / rep_racine).is_dir():
             logger.info(f"Création du répertoire racine : {rep_racine}")
             Path(rep_destination / rep_racine).mkdir(parents=False)
@@ -562,7 +575,7 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
         seq = 1
         fichiers = rep_origine.glob("*.*")
         for f in fichiers:
-            if re.match(media_pat, f.suffix):
+            if re.match(MEDIA_PAT, f.suffix):
                 date_prise = f.name.split("_")[1]
                 if not ctx.obj["INCREMENT"] or date_prise > dernier:
                     logger.debug(f"Copie/renommage de {f.name}, daté {date_prise}")
@@ -682,6 +695,7 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                                     str(gx),
                                 )
                                 os.utime(gx, (mtime, mtime))
+                                gx.with_suffix(".xmp_original").unlink(missing_ok=True)
                             fx = Path(str(f))
                             gx = Path(str(g))
                             if fx.exists():
@@ -693,6 +707,7 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                                     str(gx),
                                 )
                                 os.utime(gx, (mtime, mtime))
+                                gx.with_suffix(".mp4_original").unlink(missing_ok=True)
 
 
 @main.command()
@@ -719,26 +734,26 @@ def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
                         (chemin / file).stat().st_size for file in fichiers
                     )
                     synthèse.loc[chemin_p[-2], "Photos"] += len(  # type: ignore
-                        [f for f in fichiers if re.match(photo_pat, Path(f).suffix)]
+                        [f for f in fichiers if re.match(PHOTO_PAT, Path(f).suffix)]
                     )
                     synthèse.loc[chemin_p[-2], "Vidéos"] += len(  # type: ignore
-                        [f for f in fichiers if re.match(video_pat, Path(f).suffix)]
+                        [f for f in fichiers if re.match(VIDEO_PAT, Path(f).suffix)]
                     )
                 else:
                     synthèse.loc[chemin_p[-2], "Taille"] = sum(
                         (chemin / file).stat().st_size for file in fichiers
                     )
                     synthèse.loc[chemin_p[-2], "Photos"] = len(
-                        [f for f in fichiers if re.match(photo_pat, Path(f).suffix)]
+                        [f for f in fichiers if re.match(PHOTO_PAT, Path(f).suffix)]
                     )
                     synthèse.loc[chemin_p[-2], "Vidéos"] = len(
-                        [f for f in fichiers if re.match(video_pat, Path(f).suffix)]
+                        [f for f in fichiers if re.match(VIDEO_PAT, Path(f).suffix)]
                     )
 
                 # Comptage des espèces
                 for f in fichiers:
                     fp = Path(chemin / f)
-                    if re.match(media_pat, fp.suffix):
+                    if re.match(MEDIA_PAT, fp.suffix):
                         logger.debug(f"Analyse du fichier {fp}")
                         # Recherche des tags de classification
                         for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
