@@ -592,7 +592,7 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                     # Vérification des tags
                     sp = noms(tags)
                     if len(sp) == 0:
-                        logger.warn(f"Pas d'espèce définie dans {f.name}")
+                        logger.warning(f"Pas d'espèce définie dans {f.name}")
                     nb = qte(tags)
                     det = details(tags)
                     logger.debug(f"tags : {sp}/{nb}/{det}")
@@ -626,8 +626,8 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                                     "run",
                                     "deface",
                                     "--keep-metadata",
-                                    "--execution-provider",
-                                    "CUDAExecutionProvider",
+                                    # "--execution-provider",
+                                    # "CUDAExecutionProvider",
                                     "--output",
                                     f"{fp.name}",
                                     f"{f}",
@@ -730,13 +730,13 @@ def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 # Répertoire contenant les médias
                 # Calcul des tailles et types de médias
                 if chemin_p[-2] in synthèse.index:
-                    synthèse.loc[chemin_p[-2], "Taille"] += sum(  # type: ignore
+                    synthèse.loc[chemin_p[-2], "Taille"] += sum(
                         (chemin / file).stat().st_size for file in fichiers
                     )
-                    synthèse.loc[chemin_p[-2], "Photos"] += len(  # type: ignore
+                    synthèse.loc[chemin_p[-2], "Photos"] += len(
                         [f for f in fichiers if re.match(PHOTO_PAT, Path(f).suffix)]
                     )
-                    synthèse.loc[chemin_p[-2], "Vidéos"] += len(  # type: ignore
+                    synthèse.loc[chemin_p[-2], "Vidéos"] += len(
                         [f for f in fichiers if re.match(VIDEO_PAT, Path(f).suffix)]
                     )
                 else:
