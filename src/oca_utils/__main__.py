@@ -438,6 +438,7 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     nb_sp = 0
     nb_qte = 0
     nb_det = 0
+    nb_geo = 0
     with exiftool.ExifToolHelper() as et:
         for f in fichiers:
             # Liste des fichiers triés par date de prise de vue
@@ -474,6 +475,15 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                     nb_det += 1
                 logger.debug(f"{f.name} : {sp}/{nb}/{det}")
 
+                # Recherche des tags de géolocalisation
+                for d in et.get_tags(
+                    f, tags=["XMP:GPSLatitude", "XMP:GPSLongitude", "XMP:GPSAltitude"]
+                ):
+                    if len(d) > 0:
+                        nb_geo += 1
+                    else:
+                        logger.warning(f"Fichier sans gétolocalisation : {f.name}")
+
     table = Table(title=f"Contenu de {rep_origine.name}")
     table.add_column("Item", justify="left", no_wrap=True)
     table.add_column("Valeur", justify="right")
@@ -487,6 +497,7 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     table.add_row("Tags espèce", str(nb_sp))
     table.add_row("Tags quantité", str(nb_qte))
     table.add_row("Tags détails", str(nb_det))
+    table.add_row("Géolocalisation", str(nb_geo))
     console = Console()
     console.print(table)
 
