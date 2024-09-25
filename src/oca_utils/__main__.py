@@ -479,10 +479,14 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 for d in et.get_tags(
                     f, tags=["XMP:GPSLatitude", "XMP:GPSLongitude", "XMP:GPSAltitude"]
                 ):
-                    if len(d) > 0:
+                    if (
+                        ("XMP:GPSLatitude" in d)
+                        and ("XMP:GPSLongitude" in d)
+                        and ("XMP:GPSAltitude" in d)
+                    ):
                         nb_geo += 1
                     else:
-                        logger.warning(f"Fichier sans gétolocalisation : {f.name}")
+                        logger.warning(f"Fichier sans géolocalisation : {f.name}")
 
     table = Table(title=f"Contenu de {rep_origine.name}")
     table.add_column("Item", justify="left", no_wrap=True)
@@ -498,6 +502,10 @@ def vérifier(ctx: click.Context) -> None:  # noqa: max-complexity=13
     table.add_row("Tags quantité", str(nb_qte))
     table.add_row("Tags détails", str(nb_det))
     table.add_row("Géolocalisation", str(nb_geo))
+    if nb_geo < nb_fic:
+        table.add_row(
+            "Fichiers sans localisation", str(nb_fic - nb_geo), style="bold bright_red"
+        )
     console = Console()
     console.print(table)
 
@@ -723,76 +731,103 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
 
 @main.command()
 @click.pass_context
-def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
+def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
     """Analyse les photos et vidéos transmises."""
+    rep_origine = Path(ctx.obj["ORIGINE"])
     rep_destination = Path(ctx.obj["DESTINATION"])
     logger.info(f"Bilan des photos et vidéos transférées dans {rep_destination}")
     lg_destination = len(rep_destination.parts)
 
-    # Parcours des répértoires pour chercher les photos et vidéos
-    synthèse = pd.DataFrame(columns=("Répertoire", "Taille", "Photos", "Vidéos"))
+    synthèse = pd.DataFrame(
+        columns=(
+            "Répertoire",
+            "Source",
+            "Destination",
+            "Taille",
+            "Médias",
+            "Photos",
+            "Vidéos",
+        )
+    )
     synthèse.set_index(["Répertoire"], inplace=True)
-    espèces = pd.DataFrame(columns=("Espèce", "Occurrences", "Individus"))
-    espèces.set_index(["Espèce"], inplace=True)
-    with exiftool.ExifToolHelper() as et:
-        for chemin, _dirs, fichiers in rep_destination.walk(on_error=print):
-            chemin_p = chemin.parts
-            if len(chemin_p) == lg_destination + 2 and not chemin_p[-2].startswith("."):
-                # Répertoire contenant les médias
-                # Calcul des tailles et types de médias
-                if chemin_p[-2] in synthèse.index:
-                    synthèse.loc[chemin_p[-2], "Taille"] += sum(
-                        (chemin / file).stat().st_size for file in fichiers
-                    )
-                    synthèse.loc[chemin_p[-2], "Photos"] += len(
-                        [f for f in fichiers if re.match(PHOTO_PAT, Path(f).suffix)]
-                    )
-                    synthèse.loc[chemin_p[-2], "Vidéos"] += len(
-                        [f for f in fichiers if re.match(VIDEO_PAT, Path(f).suffix)]
-                    )
-                else:
-                    synthèse.loc[chemin_p[-2], "Taille"] = sum(
-                        (chemin / file).stat().st_size for file in fichiers
-                    )
-                    synthèse.loc[chemin_p[-2], "Photos"] = len(
-                        [f for f in fichiers if re.match(PHOTO_PAT, Path(f).suffix)]
-                    )
-                    synthèse.loc[chemin_p[-2], "Vidéos"] = len(
-                        [f for f in fichiers if re.match(VIDEO_PAT, Path(f).suffix)]
-                    )
 
-                # Comptage des espèces
-                for f in fichiers:
-                    fp = Path(chemin / f)
-                    if re.match(MEDIA_PAT, fp.suffix):
-                        logger.debug(f"Analyse du fichier {fp}")
-                        # Recherche des tags de classification
-                        for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
-                            if "XMP:HierarchicalSubject" in d:
-                                tags = d["XMP:HierarchicalSubject"]
-                            else:
-                                tags = []
-                            if not isinstance(tags, list):
-                                tags = [tags]
-                        logger.debug(tags)
+    # Parcours des répértoires d'origine pour chercher les photos et vidéos
+    for chemin, _dirs, fichiers in rep_origine.walk(on_error=print):
+        chemin_p = chemin.parts
+        if Path(chemin / "information.yaml").exists():
+            with open(chemin / "information.yaml") as info:
+                infos = yaml.safe_load(info)
+                nom = infos["caméra"]["nom"]
+                rep_racine = "_".join(
+                    (
+                        nom,
+                        re.sub(DEPT_PAT, "", chemin_p[-2]),
+                        chemin_p[-1].replace("_", ""),
+                    )
+                )
+            logger.debug(
+                f"Compte dans le répertoire d'origine {chemin} vers {rep_racine}"
+            )
+            synthèse.loc[rep_racine, "Source"] = len(fichiers)
+            synthèse.loc[rep_racine, "Destination"] = 0
+            synthèse.loc[rep_racine, "Taille"] = 0
+            synthèse.loc[rep_racine, "Photos"] = 0
+            synthèse.loc[rep_racine, "Vidéos"] = 0
 
-                        # Vérification des tags
-                        sp = noms(tags)
-                        nb = qte(tags)
-                        for s in sp:
-                            qt = 1
-                            for n in nb:
-                                if s in n:
-                                    qt = int(n[s])
-                                else:
-                                    qt = max(1, qt)
-                            if s in espèces.index:
-                                espèces.loc[s, "Occurrences"] += 1  # type: ignore
-                                espèces.loc[s, "Individus"] += qt  # type: ignore
-                            else:
-                                espèces.loc[s, "Occurrences"] = 1
-                                espèces.loc[s, "Individus"] = qt
+    # Parcours des répértoires destination pour chercher les photos et vidéos
+    for chemin, _dirs, fichiers in rep_destination.walk(on_error=print):
+        logger.debug(f"Compte dans le répertoire de destination {chemin}")
+        chemin_p = chemin.parts
+        if len(chemin_p) == lg_destination + 2 and not chemin_p[-2].startswith("."):
+            # Répertoire contenant les médias
+            # Calcul des tailles et types de médias
+            synthèse.loc[chemin_p[-2], "Destination"] += len(fichiers)
+            synthèse.loc[chemin_p[-2], "Taille"] += sum(
+                (chemin / file).stat().st_size for file in fichiers
+            )
+            synthèse.loc[chemin_p[-2], "Photos"] += len(
+                [f for f in fichiers if re.match(PHOTO_PAT, Path(f).suffix)]
+            )
+            synthèse.loc[chemin_p[-2], "Vidéos"] += len(
+                [f for f in fichiers if re.match(VIDEO_PAT, Path(f).suffix)]
+            )
 
+    # espèces = pd.DataFrame(columns=("Espèce", "Occurrences", "Individus"))
+    # espèces.set_index(["Espèce"], inplace=True)
+    # with exiftool.ExifToolHelper() as et:
+    # # Comptage des espèces
+    # for f in fichiers:
+    #     fp = Path(chemin / f)
+    #     if re.match(MEDIA_PAT, fp.suffix):
+    #         logger.debug(f"Analyse du fichier {fp}")
+    #         # Recherche des tags de classification
+    #         for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
+    #             if "XMP:HierarchicalSubject" in d:
+    #                 tags = d["XMP:HierarchicalSubject"]
+    #             else:
+    #                 tags = []
+    #             if not isinstance(tags, list):
+    #                 tags = [tags]
+    #         logger.debug(tags)
+
+    #         # Vérification des tags
+    #         sp = noms(tags)
+    #         nb = qte(tags)
+    #         for s in sp:
+    #             qt = 1
+    #             for n in nb:
+    #                 if s in n:
+    #                     qt = int(n[s])
+    #                 else:
+    #                     qt = max(1, qt)
+    #             if s in espèces.index:
+    #                 espèces.loc[s, "Occurrences"] += 1  # type: ignore
+    #                 espèces.loc[s, "Individus"] += qt  # type: ignore
+    #             else:
+    #                 espèces.loc[s, "Occurrences"] = 1
+    #                 espèces.loc[s, "Individus"] = qt
+
+    synthèse["Médias"] = synthèse["Photos"] + synthèse["Vidéos"]
     synthèse.sort_index(inplace=True)
     total = synthèse.aggregate(func="sum")
     synthèse.Taille = synthèse.Taille.apply(lambda t: humanize.naturalsize(t))
@@ -809,9 +844,9 @@ def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
     )
     console.print(table_f)
 
-    table_e = Table(title="Synthèse espèces OCA")
-    espèces.sort_values("Occurrences", inplace=True, ascending=False)
-    console.print(df_to_table(espèces, table_e))
+    # table_e = Table(title="Synthèse espèces OCA")
+    # espèces.sort_values("Occurrences", inplace=True, ascending=False)
+    # console.print(df_to_table(espèces, table_e))
 
 
 if __name__ == "__main__":
