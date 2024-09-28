@@ -31,6 +31,7 @@ PHOTO_PAT = re.compile(r"\.(JPG|jpg)")
 VIDEO_PAT = re.compile(r"\.(AVI|avi|MP4|mp4)")
 AVI_PAT = re.compile(r"\.(AVI|avi)")
 CORRECT_PAT = re.compile(r"IMG_\d{8}_\d{6}_\d{2}\..*")
+XMPO_PAT = re.compile(r".*xmp_original")
 NATURE_PAT = re.compile(r"Nature.*")
 ESPECE_PAT = re.compile(r"(\w|\s|')+ {")
 QTE_PAT = re.compile(r"Quantité.*")
@@ -38,6 +39,7 @@ NB_PAT = re.compile(r"((\w|\s)+)_(\d+)")
 DET_PAT = re.compile(r"Détails.*")
 DETAILS_PAT = re.compile(r"((\w|\s)+)_((\w|\s)+)")
 DEPT_PAT = re.compile(r"FR\d\d_")
+OCA_PAT = re.compile(r"IMG_\d{4}_([\sa-zA-Z]*)_(\d*).*")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -544,6 +546,14 @@ def géotagger(ctx: click.Context) -> None:
                 else:
                     logger.warning(f"Pas de fichier sidecar pour {f.name}")
 
+    # Suppression des xmp_original
+    fichiers = rep_origine.glob("*.*")
+    for f in fichiers:
+        # Liste des fichiers triés par date de prise de vue
+        if re.match(XMPO_PAT, f.suffix):
+            logger.debug(f"Suppression de {f.name}")
+            f.unlink(missing_ok=True)
+
 
 @main.command()
 @click.pass_context
@@ -732,10 +742,12 @@ def copier(ctx: click.Context) -> None:  # noqa: max-complexity=13
 @main.command()
 @click.pass_context
 def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
-    """Analyse les photos et vidéos transmises."""
+    """Vérification et bilan des photos et vidéos transmises."""
     rep_origine = Path(ctx.obj["ORIGINE"])
     rep_destination = Path(ctx.obj["DESTINATION"])
-    logger.info(f"Bilan des photos et vidéos transférées dans {rep_destination}")
+    logger.info(
+        f"Vérification et bilan des photos et vidéos transférées dans {rep_destination}"
+    )
     lg_destination = len(rep_destination.parts)
 
     synthèse = pd.DataFrame(
@@ -769,7 +781,7 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 f"Compte dans le répertoire d'origine {chemin} vers {rep_racine}"
             )
             synthèse.loc[rep_racine, "Source"] = len(fichiers)
-            synthèse.loc[rep_racine, "Destination"] = 0
+            synthèse.loc[rep_racine, "Destination"] = 1  # En comptant information.yaml
             synthèse.loc[rep_racine, "Taille"] = 0
             synthèse.loc[rep_racine, "Photos"] = 0
             synthèse.loc[rep_racine, "Vidéos"] = 0
@@ -792,41 +804,6 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 [f for f in fichiers if re.match(VIDEO_PAT, Path(f).suffix)]
             )
 
-    # espèces = pd.DataFrame(columns=("Espèce", "Occurrences", "Individus"))
-    # espèces.set_index(["Espèce"], inplace=True)
-    # with exiftool.ExifToolHelper() as et:
-    # # Comptage des espèces
-    # for f in fichiers:
-    #     fp = Path(chemin / f)
-    #     if re.match(MEDIA_PAT, fp.suffix):
-    #         logger.debug(f"Analyse du fichier {fp}")
-    #         # Recherche des tags de classification
-    #         for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
-    #             if "XMP:HierarchicalSubject" in d:
-    #                 tags = d["XMP:HierarchicalSubject"]
-    #             else:
-    #                 tags = []
-    #             if not isinstance(tags, list):
-    #                 tags = [tags]
-    #         logger.debug(tags)
-
-    #         # Vérification des tags
-    #         sp = noms(tags)
-    #         nb = qte(tags)
-    #         for s in sp:
-    #             qt = 1
-    #             for n in nb:
-    #                 if s in n:
-    #                     qt = int(n[s])
-    #                 else:
-    #                     qt = max(1, qt)
-    #             if s in espèces.index:
-    #                 espèces.loc[s, "Occurrences"] += 1  # type: ignore
-    #                 espèces.loc[s, "Individus"] += qt  # type: ignore
-    #             else:
-    #                 espèces.loc[s, "Occurrences"] = 1
-    #                 espèces.loc[s, "Individus"] = qt
-
     synthèse["Médias"] = synthèse["Photos"] + synthèse["Vidéos"]
     synthèse.sort_index(inplace=True)
     total = synthèse.aggregate(func="sum")
@@ -838,15 +815,52 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
     table_f.add_section()
     table_f.add_row(
         "TOTAL",
+        str(total.Source),
+        str(total.Destination),
         humanize.naturalsize(total.Taille),
+        str(total.Médias),
         str(total.Photos),
         str(total.Vidéos),
     )
     console.print(table_f)
 
-    # table_e = Table(title="Synthèse espèces OCA")
-    # espèces.sort_values("Occurrences", inplace=True, ascending=False)
-    # console.print(df_to_table(espèces, table_e))
+
+@main.command()
+@click.pass_context
+def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
+    """Analyse les photos et vidéos transmises."""
+    rep_destination = Path(ctx.obj["DESTINATION"])
+    logger.info(f"Bilan des photos et vidéos transférées dans {rep_destination}")
+
+    espèces = pd.DataFrame(columns=("Espèce", "Occurrences", "Individus"))
+    espèces.set_index(["Espèce"], inplace=True)
+
+    # Parcours des répértoires destination pour chercher les photos et vidéos
+    for chemin, _dirs, fichiers in rep_destination.walk(on_error=print):
+        logger.debug(f"Compte dans le répertoire de destination {chemin}")
+        # Comptage des espèces
+        for f in fichiers:
+            fp = Path(chemin / f)
+            if re.match(MEDIA_PAT, fp.suffix):
+                logger.debug(f"Analyse du fichier {fp}")
+
+                spq = OCA_PAT.match(f)
+
+                if spq is not None:
+                    sp = spq.group(1)
+                    nb = int(spq.group(2))
+
+                    if sp in espèces.index:
+                        espèces.loc[sp, "Occurrences"] += 1  # type: ignore
+                        espèces.loc[sp, "Individus"] += nb  # type: ignore
+                    else:
+                        espèces.loc[sp, "Occurrences"] = 1
+                        espèces.loc[sp, "Individus"] = nb
+
+    console = Console()
+    table_e = Table(title="Synthèse espèces OCA")
+    espèces.sort_values("Occurrences", inplace=True, ascending=False)
+    console.print(df_to_table(espèces, table_e))
 
 
 if __name__ == "__main__":
