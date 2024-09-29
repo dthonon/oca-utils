@@ -39,7 +39,7 @@ NB_PAT = re.compile(r"((\w|\s)+)_(\d+)")
 DET_PAT = re.compile(r"Détails.*")
 DETAILS_PAT = re.compile(r"((\w|\s)+)_((\w|\s)+)")
 DEPT_PAT = re.compile(r"FR\d\d_")
-OCA_PAT = re.compile(r"IMG_\d{4}_([\sa-zA-Z]*)_(\d*).*")
+OCA_PAT = re.compile(r"IMG_\d{4}_([\sa-zA-Z\']*)_(\d*).*")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -807,7 +807,7 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
     synthèse["Médias"] = synthèse["Photos"] + synthèse["Vidéos"]
     synthèse.sort_index(inplace=True)
     total = synthèse.aggregate(func="sum")
-    synthèse.Taille = synthèse.Taille.apply(lambda t: humanize.naturalsize(t))
+    synthèse.Taille = synthèse.Taille.apply(lambda t: humanize.naturalsize(t, True))
     console = Console()
 
     table_f = Table(title="Synthèse fichiers OCA")
@@ -817,7 +817,7 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
         "TOTAL",
         str(total.Source),
         str(total.Destination),
-        humanize.naturalsize(total.Taille),
+        humanize.naturalsize(total.Taille, True),
         str(total.Médias),
         str(total.Photos),
         str(total.Vidéos),
