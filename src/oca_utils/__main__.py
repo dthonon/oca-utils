@@ -26,9 +26,9 @@ from rich.table import Table
 from unidecode import unidecode
 
 
-MEDIA_PAT = re.compile(r"\.(AVI|avi|MP4|mp4|JPG|jpg)")
+MEDIA_PAT = re.compile(r"\.(MP4|mp4|JPG|jpg)")
 PHOTO_PAT = re.compile(r"\.(JPG|jpg)")
-VIDEO_PAT = re.compile(r"\.(AVI|avi|MP4|mp4)")
+VIDEO_PAT = re.compile(r"\.(MP4|mp4)")
 AVI_PAT = re.compile(r"\.(AVI|avi)")
 CORRECT_PAT = re.compile(r"IMG_\d{8}_\d{6}_\d{2}\..*")
 XMPO_PAT = re.compile(r".*xmp_original")
