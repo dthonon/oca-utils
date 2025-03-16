@@ -71,6 +71,13 @@ logging.basicConfig(
     type=click.Path(exists=False, dir_okay=True, writable=True),
     help="Répertoire de destination des fichiers, pour la commande copier uniquement",
 )
+@click.option(
+    "--fichier",
+    required=False,
+    default="",
+    type=click.Path(),
+    help="Fichier CSV d'export, pour la commande exporter uniquement",
+)
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -80,6 +87,7 @@ def main(
     incrément: bool,
     origine: str,
     destination: str,
+    fichier: str,
 ) -> None:
     """OCA Utils."""
     logging.info("Transfert des vidéos au format OCA")
@@ -92,7 +100,7 @@ def main(
     if not Path(origine).expanduser().is_dir():
         logger.fatal(f"Le répertoire d'entrée {origine} n'est pas valide")
         raise FileNotFoundError
-    if not Path(destination).expanduser().is_dir():
+    if destination is not None and Path(destination).expanduser().is_dir():
         logger.fatal(f"Le répertoire de sortie {destination} n'est pas valide")
         raise FileNotFoundError
     ctx.obj["FORCE"] = force
@@ -100,6 +108,7 @@ def main(
     ctx.obj["INCREMENT"] = incrément
     ctx.obj["ORIGINE"] = origine
     ctx.obj["DESTINATION"] = destination
+    ctx.obj["FICHIER"] = fichier
 
 
 def df_to_table(
@@ -756,6 +765,7 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
             "Répertoire",
             "Source",
             "Destination",
+            "Ecart",
             "Taille",
             "Médias",
             "Photos",
@@ -806,6 +816,7 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
             )
 
     synthèse["Médias"] = synthèse["Photos"] + synthèse["Vidéos"]
+    synthèse["Ecart"] = synthèse["Destination"] - synthèse["Source"]
     synthèse.sort_index(inplace=True)
     total = synthèse.aggregate(func="sum")
     synthèse.Taille = synthèse.Taille.apply(lambda t: humanize.naturalsize(t, True))
@@ -818,6 +829,7 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
         "TOTAL",
         str(total.Source),
         str(total.Destination),
+        str(total.Ecart),
         humanize.naturalsize(total.Taille, True),
         str(total.Médias),
         str(total.Photos),
@@ -862,6 +874,34 @@ def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
     table_e = Table(title="Synthèse espèces OCA")
     espèces.sort_values("Occurrences", inplace=True, ascending=False)
     console.print(df_to_table(espèces, table_e))
+
+
+@main.command()
+@click.pass_context
+def exporter(ctx: click.Context) -> None:  # noqa: max-complexity=13
+    """Export des espèces depuis les répertoires d'origine."""
+    rep_origine = Path(ctx.obj["ORIGINE"])
+    fic_export = Path(ctx.obj["FICHIER"])
+    logger.info(f"Export des espèces depuis {rep_origine} vers {fic_export}")
+
+    # Parcours des répértoires d'origine pour chercher les tags dans les médias
+    for chemin, _dirs, fichiers in rep_origine.walk(on_error=print):
+        logger.info(f"Export depuis le répertoire {chemin}")
+        with exiftool.ExifToolHelper() as et:
+            # Export des espèces
+            for f in fichiers:
+                fp = Path(chemin / f)
+                if re.match(MEDIA_PAT, fp.suffix):
+                    logger.debug(f"Analyse du fichier {fp}")
+                    # Recherche des tags de classification
+                    for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
+                        if "XMP:HierarchicalSubject" in d:
+                            tags = d["XMP:HierarchicalSubject"]
+                        else:
+                            tags = []
+                        if not isinstance(tags, list):
+                            tags = [tags]
+                    logger.debug(tags)
 
 
 if __name__ == "__main__":
