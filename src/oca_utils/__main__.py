@@ -49,45 +49,36 @@ logging.basicConfig(
 
 @click.version_option()
 @click.group()
-@click.option("--trace", default=False, help="Traces détaillées")
-@click.option("--force", default=False, help="Force le traitement")
-@click.option("--essai", default=False, help="Mode essai, sans action effectuée")
-@click.option(
-    "--incrément", default=True, help="Traitement incrémental depuis le dernier relevé"
-)
-@click.option(
-    "--force", default=False, help="Force le traitement, même s'il n'est pas nécessaire"
-)
-@click.option(
-    "--origine",
-    required=True,
-    type=click.Path(exists=True, dir_okay=True, readable=True),
-    help="Répertoire des fichiers à traiter",
-)
-@click.option(
-    "--destination",
-    required=False,
-    default="",
-    type=click.Path(exists=False, dir_okay=True, writable=True),
-    help="Répertoire de destination des fichiers, pour la commande copier uniquement",
-)
-@click.option(
-    "--fichier",
-    required=False,
-    default="",
-    type=click.Path(),
-    help="Fichier CSV d'export, pour la commande exporter uniquement",
-)
+@click.option("--trace", is_flag=True, help="Traces détaillées")
+@click.option("--essai", is_flag=True, help="Mode essai, sans action effectuée")
+# @click.option(
+#     "--incrément", default=True, help="Traitement incrémental depuis le dernier relevé"
+# )
+# @click.option(
+#     "--force", is_flag=True, help="Force le traitement, même s'il n'est pas nécessaire"
+# )
+# @click.option(
+#     "--origine",
+#     required=True,
+#     type=click.Path(exists=True, dir_okay=True, readable=True),
+#     help="Répertoire des fichiers à traiter",
+# )
+# @click.option(
+#     "--destination",
+#     required=False,
+#     default="",
+#     type=click.Path(exists=False, dir_okay=True, writable=True),
+#     help="Répertoire de destination des fichiers, pour la commande copier uniquement",
+# )
 @click.pass_context
 def main(
     ctx: click.Context,
     trace: bool,
-    force: bool,
     essai: bool,
-    incrément: bool,
-    origine: str,
-    destination: str,
-    fichier: str,
+    # force: bool,
+    # incrément: bool,
+    # origine: str,
+    # destination: str,
 ) -> None:
     """OCA Utils."""
     logging.info("Transfert des vidéos au format OCA")
@@ -97,18 +88,17 @@ def main(
     if trace:
         logger.setLevel(logging.DEBUG)
 
-    if not Path(origine).expanduser().is_dir():
-        logger.fatal(f"Le répertoire d'entrée {origine} n'est pas valide")
-        raise FileNotFoundError
-    if destination is not None and Path(destination).expanduser().is_dir():
-        logger.fatal(f"Le répertoire de sortie {destination} n'est pas valide")
-        raise FileNotFoundError
-    ctx.obj["FORCE"] = force
+    # if not Path(origine).expanduser().is_dir():
+    #     logger.fatal(f"Le répertoire d'entrée {origine} n'est pas valide")
+    #     raise FileNotFoundError
+    # if destination != "" and not Path(destination).expanduser().is_dir():
+    #     logger.fatal(f"Le répertoire de sortie {destination} n'est pas valide")
+    #     raise FileNotFoundError
+    # ctx.obj["FORCE"] = force
     ctx.obj["ESSAI"] = essai
-    ctx.obj["INCREMENT"] = incrément
-    ctx.obj["ORIGINE"] = origine
-    ctx.obj["DESTINATION"] = destination
-    ctx.obj["FICHIER"] = fichier
+    # ctx.obj["INCREMENT"] = incrément
+    # ctx.obj["ORIGINE"] = origine
+    # ctx.obj["DESTINATION"] = destination
 
 
 def df_to_table(
@@ -877,15 +867,39 @@ def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
 
 
 @main.command()
+@click.option(
+    "--input_dir",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, readable=True),
+    help="Répertoire des fichiers à traiter",
+)
+@click.option(
+    "--output",
+    required=False,
+    default="",
+    type=click.Path(),
+    help="Fichier CSV d'export, pour la commande exporter uniquement",
+)
+@click.option(
+    "--remplace", is_flag=True, help="Remplace le fichier d'export s'il existe déjà."
+)
 @click.pass_context
-def exporter(ctx: click.Context) -> None:  # noqa: max-complexity=13
+def exporter(
+    ctx: click.Context, input_dir: str, output: str, remplace: bool
+) -> None:  # noqa: max-complexity=13
     """Export des espèces depuis les répertoires d'origine."""
-    rep_origine = Path(ctx.obj["ORIGINE"])
-    fic_export = Path(ctx.obj["FICHIER"])
-    logger.info(f"Export des espèces depuis {rep_origine} vers {fic_export}")
+    fic_export = Path(output)
+    if fic_export.exists() and not remplace:
+        logger.fatal(f"Le fichier d'export {fic_export} existe déjà")
+        raise FileExistsError
+    if not Path(input_dir).expanduser().is_dir():
+        logger.fatal(f"Le répertoire d'entrée {input_dir} n'est pas valide")
+        raise FileNotFoundError
+    input_dirp = Path(input_dir).expanduser()
+    logger.info(f"Export des espèces depuis {input_dir} vers {fic_export}")
 
     # Parcours des répértoires d'origine pour chercher les tags dans les médias
-    for chemin, _dirs, fichiers in rep_origine.walk(on_error=print):
+    for chemin, _dirs, fichiers in input_dirp.walk(on_error=print):
         logger.info(f"Export depuis le répertoire {chemin}")
         with exiftool.ExifToolHelper() as et:
             # Export des espèces
@@ -893,7 +907,23 @@ def exporter(ctx: click.Context) -> None:  # noqa: max-complexity=13
                 fp = Path(chemin / f)
                 if re.match(MEDIA_PAT, fp.suffix):
                     logger.debug(f"Analyse du fichier {fp}")
-                    # Recherche des tags de classification
+                    # Extraction de la date de prise de vue
+                    for d in et.get_tags(
+                        fp, tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"]
+                    ):
+                        logger.debug(d)
+                        # Recherche de la date de prise de vue
+                        if "EXIF:DateTimeOriginal" in d:
+                            dc = d["EXIF:DateTimeOriginal"]
+                        elif "XMP:DateTimeOriginal" in d:
+                            dc = d["XMP:DateTimeOriginal"]
+                        elif "XMP:CreateDate" in d:
+                            dc = d["XMP:CreateDate"]
+                        elif "QuickTime:MediaCreateDate" in d:
+                            dc = d["QuickTime:MediaCreateDate"]
+                        else:
+                            logger.error("Pas de date de prise de vue définie")
+                    # Rechercher les tags de classification
                     for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
                         if "XMP:HierarchicalSubject" in d:
                             tags = d["XMP:HierarchicalSubject"]
@@ -901,7 +931,44 @@ def exporter(ctx: click.Context) -> None:  # noqa: max-complexity=13
                             tags = []
                         if not isinstance(tags, list):
                             tags = [tags]
+                    # Rechercher les tags de localisation
+                    for d in et.get_tags(
+                        fp,
+                        tags=["XMP:GPSLatitude", "XMP:GPSLongitude", "XMP:GPSAltitude"],
+                    ):
+                        if (
+                            ("XMP:GPSLatitude" in d)
+                            and ("XMP:GPSLongitude" in d)
+                            and ("XMP:GPSAltitude" in d)
+                        ):
+                            latitude = d["XMP:GPSLatitude"]
+                            longitude = d["XMP:GPSLongitude"]
+                            altitude = d["XMP:GPSAltitude"]
+                        else:
+                            logger.error("Pas de coordonnées géographiques définies")
+                    # Vérification des tags
                     logger.debug(tags)
+                    sp = noms(tags)
+                    if len(sp) == 0:
+                        logger.warning(f"Pas d'espèce définie dans {fp}")
+                    nb = qte(tags)
+                    det = details(tags)
+                    logger.debug(f"tags : {sp}/{nb}/{det}")
+                    # Parcours des espèces pour exporter vers autant de lignes
+                    for s in sp:
+                        qt = 1
+                        for n in nb:
+                            if s in n:
+                                qt = int(n[s])
+                            else:
+                                qt = max(1, qt)
+                        de = ""
+                        for d in det:
+                            if s in d:
+                                de = d[s]
+                        logger.info(
+                            f"{dc};{s};{qt};{de};{latitude};{longitude};{altitude}"
+                        )
 
 
 if __name__ == "__main__":
