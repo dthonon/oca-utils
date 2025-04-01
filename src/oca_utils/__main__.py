@@ -138,14 +138,35 @@ def df_to_table(
 
 
 @main.command()
+@click.option(
+    "--input_dir",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, readable=True),
+    help="Répertoire des fichiers AVI à convertir",
+)
+@click.option(
+    "--output_dir",
+    required=False,
+    default="",
+    type=click.Path(),
+    help="Répertoire de destination des fichiers MP4",
+)
+@click.option(
+    "--remplace", is_flag=True, help="Remplace le fichier d'export s'il existe déjà."
+)
 @click.pass_context
-def convertir(ctx: click.Context) -> None:
+def convertir(
+    ctx: click.Context, input_dir: str, output_dir: str, remplace: bool
+) -> None:
     """Convertit les vidéos AVI ou  MP4 en mp4 optimisé."""
-    rep_origine = Path(ctx.obj["ORIGINE"])
+    rep_origine = Path(input_dir).expanduser()
+    if not rep_origine.is_dir():
+        logger.fatal(f"Le répertoire d'entrée {input_dir} n'est pas valide")
+        raise FileNotFoundError
     logger.info(f"Conversion des vidéos depuis {rep_origine}")
-    rep_destination = Path(ctx.obj["DESTINATION"])
-    logger.info(f"Conversion des vidéos vers {rep_destination}")
+    rep_destination = Path(output_dir)
     rep_destination.mkdir(exist_ok=True)
+    logger.info(f"Conversion des vidéos vers {rep_destination}")
 
     with exiftool.ExifToolHelper() as et:
         for f in [f for f in rep_origine.glob("*.*")]:
