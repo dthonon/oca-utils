@@ -1,5 +1,6 @@
 """Command-line interface."""
 
+import csv
 import datetime
 import logging
 import os
@@ -32,6 +33,9 @@ VIDEO_PAT = re.compile(r"\.(MP4|mp4)")
 AVI_PAT = re.compile(r"\.(AVI|avi)")
 CORRECT_PAT = re.compile(r"IMG_\d{8}_\d{6}_\d{2}\..*")
 XMPO_PAT = re.compile(r".*xmp_original")
+COMMUNE_PAT = re.compile(
+    r"Continents et pays\|Europe\|France {France} {FR} {FRA}\|Auvergne-Rhône-Alpes\|Isère\|(.*)"
+)
 NATURE_PAT = re.compile(r"Nature.*")
 ESPECE_PAT = re.compile(r"(\w|\s|')+ {")
 QTE_PAT = re.compile(r"Quantité.*")
@@ -646,34 +650,37 @@ def copier(  # noqa: max-complexity=13
     # Création des chemin par date de relevé
     with open(rep_origine / "information.yaml") as info:
         infos = yaml.safe_load(info)
-        nom = infos["caméra"]["nom"]
-        p = rep_origine.parts
-        rep_racine = "_".join(
-            (nom, re.sub(DEPT_PAT, "", p[-2]), p[-1].replace("_", ""))
-        )
-        if not Path(rep_destination / rep_racine).is_dir():
-            logger.info(f"Création du répertoire racine : {rep_racine}")
-            Path(rep_destination / rep_racine).mkdir(parents=False)
-        shutil.copy2(
-            rep_origine / "information.yaml", Path(rep_destination / rep_racine)
-        )
+        if "export_oca" in infos and infos["export_oca"]:
+            nom = infos["caméra"]["nom"]
+            p = rep_origine.parts
+            rep_racine = "_".join(
+                (nom, re.sub(DEPT_PAT, "", p[-2]), p[-1].replace("_", ""))
+            )
+            if not Path(rep_destination / rep_racine).is_dir():
+                logger.info(f"Création du répertoire racine : {rep_racine}")
+                Path(rep_destination / rep_racine).mkdir(parents=False)
+            shutil.copy2(
+                rep_origine / "information.yaml", Path(rep_destination / rep_racine)
+            )
 
-        def date_oca(dt: str) -> str:
-            dts = dt.split("/")
-            return "".join((dts[2], dts[1], dts[0]))
+            def date_oca(dt: str) -> str:
+                dts = dt.split("/")
+                return "".join((dts[2], dts[1], dts[0]))
 
-        relevés = [date_oca(dt) for dt in infos["relevé"]]
+            relevés = [date_oca(dt) for dt in infos["relevé"]]
 
-        dernier = "00000000"
-        for dt in sorted(relevés):
-            if Path(rep_destination / rep_racine / dt).is_dir():
-                # Mémorisation de la date de dernier relevé, pour incrément
-                dernier = dt
-            else:
-                logger.info(f"Création du répertoire par relevé : {rep_racine}/{dt}")
-                Path(rep_destination / rep_racine / dt).mkdir(
-                    parents=True, exist_ok=True
-                )
+            dernier = "00000000"
+            for dt in sorted(relevés):
+                if Path(rep_destination / rep_racine / dt).is_dir():
+                    # Mémorisation de la date de dernier relevé, pour incrément
+                    dernier = dt
+                else:
+                    logger.info(
+                        f"Création du répertoire par relevé : {rep_racine}/{dt}"
+                    )
+                    Path(rep_destination / rep_racine / dt).mkdir(
+                        parents=True, exist_ok=True
+                    )
 
     type_cp = "incrémentale" if increment else "complète"
     logger.info(f"Copie {type_cp}" + f" depuis {dernier}")
@@ -819,11 +826,32 @@ def copier(  # noqa: max-complexity=13
 
 
 @main.command()
+@click.option(
+    "--from_dir",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, readable=True),
+    help="Répertoire des fichiers à traiter",
+)
+@click.option(
+    "--to_dir",
+    required=False,
+    default="",
+    type=click.Path(),
+    help="Fichier CSV d'export, pour la commande exporter uniquement",
+)
 @click.pass_context
-def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
+def comparer(  # noqa: max-complexity=13
+    ctx: click.Context, from_dir: str, to_dir: str
+) -> None:
     """Vérification et bilan des photos et vidéos transmises."""
-    rep_origine = Path(ctx.obj["ORIGINE"])
-    rep_destination = Path(ctx.obj["DESTINATION"])
+    if not Path(from_dir).expanduser().is_dir():
+        logger.fatal(f"Le répertoire d'entrée {from_dir} n'est pas valide")
+        raise FileNotFoundError
+    rep_origine = Path(from_dir).expanduser()
+    if not Path(to_dir).expanduser().is_dir():
+        logger.fatal(f"Le répertoire de destination {to_dir} n'est pas valide")
+        raise FileNotFoundError
+    rep_destination = Path(to_dir).expanduser()
     logger.info(
         f"Vérification et bilan des photos et vidéos transférées dans {rep_destination}"
     )
@@ -849,22 +877,25 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
         if Path(chemin / "information.yaml").exists():
             with open(chemin / "information.yaml") as info:
                 infos = yaml.safe_load(info)
-                nom = infos["caméra"]["nom"]
-                rep_racine = "_".join(
-                    (
-                        nom,
-                        re.sub(DEPT_PAT, "", chemin_p[-2]),
-                        chemin_p[-1].replace("_", ""),
+                if not ("export_oca" in infos and not infos["export_oca"]):
+                    nom = infos["caméra"]["nom"]
+                    rep_racine = "_".join(
+                        (
+                            nom,
+                            re.sub(DEPT_PAT, "", chemin_p[-2]),
+                            chemin_p[-1].replace("_", ""),
+                        )
                     )
-                )
-            logger.debug(
-                f"Compte dans le répertoire d'origine {chemin} vers {rep_racine}"
-            )
-            synthèse.loc[rep_racine, "Source"] = len(fichiers)
-            synthèse.loc[rep_racine, "Destination"] = 1  # En comptant information.yaml
-            synthèse.loc[rep_racine, "Taille"] = 0
-            synthèse.loc[rep_racine, "Photos"] = 0
-            synthèse.loc[rep_racine, "Vidéos"] = 0
+                    logger.debug(
+                        f"Compte dans le répertoire d'origine {chemin} vers {rep_racine}"
+                    )
+                    synthèse.loc[rep_racine, "Source"] = len(fichiers)
+                    synthèse.loc[rep_racine, "Destination"] = (
+                        1  # En comptant information.yaml
+                    )
+                    synthèse.loc[rep_racine, "Taille"] = 0
+                    synthèse.loc[rep_racine, "Photos"] = 0
+                    synthèse.loc[rep_racine, "Vidéos"] = 0
 
     # Parcours des répértoires destination pour chercher les photos et vidéos
     for chemin, _dirs, fichiers in rep_destination.walk(on_error=print):
@@ -908,17 +939,26 @@ def comparer(ctx: click.Context) -> None:  # noqa: max-complexity=13
 
 
 @main.command()
+@click.option(
+    "--input_dir",
+    required=True,
+    type=click.Path(exists=True, dir_okay=True, readable=True),
+    help="Répertoire des fichiers AVI à convertir",
+)
 @click.pass_context
-def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
+def analyser(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexity=13
     """Analyse les photos et vidéos transmises."""
-    rep_destination = Path(ctx.obj["DESTINATION"])
-    logger.info(f"Bilan des photos et vidéos transférées dans {rep_destination}")
+    rep_origine = Path(input_dir).expanduser()
+    if not rep_origine.is_dir():
+        logger.fatal(f"Le répertoire d'entrée {input_dir} n'est pas valide")
+        raise FileNotFoundError
+    logger.info(f"Bilan des photos et vidéos transférées dans {rep_origine}")
 
     espèces = pd.DataFrame(columns=("Espèce", "Occurrences", "Individus"))
     espèces.set_index(["Espèce"], inplace=True)
 
     # Parcours des répértoires destination pour chercher les photos et vidéos
-    for chemin, _dirs, fichiers in rep_destination.walk(on_error=print):
+    for chemin, _dirs, fichiers in rep_origine.walk(on_error=print):
         logger.debug(f"Compte dans le répertoire de destination {chemin}")
         # Comptage des espèces
         for f in fichiers:
@@ -945,6 +985,17 @@ def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
     console.print(df_to_table(espèces, table_e))
 
 
+def commune(tags: List[str]) -> str:
+    """Extraction du nom de commune."""
+    for t in tags:
+        spr = COMMUNE_PAT.match(t)
+        if spr:
+            # Le tag commence par Continent... et se termine par la commune
+            com = spr.group(1)
+
+    return com
+
+
 @main.command()
 @click.option(
     "--input_dir",
@@ -963,9 +1014,9 @@ def analyser(ctx: click.Context) -> None:  # noqa: max-complexity=13
     "--remplace", is_flag=True, help="Remplace le fichier d'export s'il existe déjà."
 )
 @click.pass_context
-def exporter(
+def exporter(  # noqa: max-complexity=13
     ctx: click.Context, input_dir: str, output: str, remplace: bool
-) -> None:  # noqa: max-complexity=13
+) -> None:
     """Export des espèces depuis les répertoires d'origine."""
     fic_export = Path(output)
     if fic_export.exists() and not remplace:
@@ -978,76 +1029,110 @@ def exporter(
     logger.info(f"Export des espèces depuis {input_dir} vers {fic_export}")
 
     # Parcours des répértoires d'origine pour chercher les tags dans les médias
-    for chemin, _dirs, fichiers in input_dirp.walk(on_error=print):
-        logger.info(f"Export depuis le répertoire {chemin}")
-        with exiftool.ExifToolHelper() as et:
-            # Export des espèces
-            for f in fichiers:
-                fp = Path(chemin / f)
-                if re.match(MEDIA_PAT, fp.suffix):
-                    logger.debug(f"Analyse du fichier {fp}")
-                    # Extraction de la date de prise de vue
-                    for d in et.get_tags(
-                        fp, tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"]
-                    ):
-                        logger.debug(d)
-                        # Recherche de la date de prise de vue
-                        if "EXIF:DateTimeOriginal" in d:
-                            dc = d["EXIF:DateTimeOriginal"]
-                        elif "XMP:DateTimeOriginal" in d:
-                            dc = d["XMP:DateTimeOriginal"]
-                        elif "XMP:CreateDate" in d:
-                            dc = d["XMP:CreateDate"]
-                        elif "QuickTime:MediaCreateDate" in d:
-                            dc = d["QuickTime:MediaCreateDate"]
-                        else:
-                            logger.error("Pas de date de prise de vue définie")
-                    # Rechercher les tags de classification
-                    for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
-                        if "XMP:HierarchicalSubject" in d:
-                            tags = d["XMP:HierarchicalSubject"]
-                        else:
-                            tags = []
-                        if not isinstance(tags, list):
-                            tags = [tags]
-                    # Rechercher les tags de localisation
-                    for d in et.get_tags(
-                        fp,
-                        tags=["XMP:GPSLatitude", "XMP:GPSLongitude", "XMP:GPSAltitude"],
-                    ):
-                        if (
-                            ("XMP:GPSLatitude" in d)
-                            and ("XMP:GPSLongitude" in d)
-                            and ("XMP:GPSAltitude" in d)
+    with open(fic_export, "w", newline="") as csvfile:
+        exporter = csv.writer(csvfile, delimiter=";")
+        exporter.writerow(
+            [
+                "Commune",
+                "Date",
+                "Espèce",
+                "Quantité",
+                "Détails",
+                "Latitude",
+                "Longitude",
+                "Altitude",
+            ]
+        )
+        for chemin, _dirs, fichiers in input_dirp.walk(on_error=print):
+            logger.info(f"Export depuis le répertoire {chemin}")
+            with exiftool.ExifToolHelper() as et:
+                # Export des espèces
+                for f in fichiers:
+                    fp = Path(chemin / f)
+                    if re.match(MEDIA_PAT, fp.suffix):
+                        logger.debug(f"Analyse du fichier {fp}")
+                        # Extraction de la date de prise de vue
+                        for d in et.get_tags(
+                            fp,
+                            tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"],
                         ):
-                            latitude = d["XMP:GPSLatitude"]
-                            longitude = d["XMP:GPSLongitude"]
-                            altitude = d["XMP:GPSAltitude"]
-                        else:
-                            logger.error("Pas de coordonnées géographiques définies")
-                    # Vérification des tags
-                    logger.debug(tags)
-                    sp = noms(tags)
-                    if len(sp) == 0:
-                        logger.warning(f"Pas d'espèce définie dans {fp}")
-                    nb = qte(tags)
-                    det = details(tags)
-                    logger.debug(f"tags : {sp}/{nb}/{det}")
-                    # Parcours des espèces pour exporter vers autant de lignes
-                    for s in sp:
-                        qt = 1
-                        for n in nb:
-                            if s in n:
-                                qt = int(n[s])
+                            logger.debug(d)
+                            # Recherche de la date de prise de vue
+                            if "EXIF:DateTimeOriginal" in d:
+                                dc = d["EXIF:DateTimeOriginal"]
+                            elif "XMP:DateTimeOriginal" in d:
+                                dc = d["XMP:DateTimeOriginal"]
+                            elif "XMP:CreateDate" in d:
+                                dc = d["XMP:CreateDate"]
+                            elif "QuickTime:MediaCreateDate" in d:
+                                dc = d["QuickTime:MediaCreateDate"]
                             else:
-                                qt = max(1, qt)
-                        de = ""
-                        for d in det:
-                            if s in d:
-                                de = d[s]
-                        logger.info(
-                            f"{dc};{s};{qt};{de};{latitude};{longitude};{altitude}"
-                        )
+                                logger.error("Pas de date de prise de vue définie")
+                        # Rechercher les tags de classification
+                        for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
+                            if "XMP:HierarchicalSubject" in d:
+                                tags = d["XMP:HierarchicalSubject"]
+                            else:
+                                tags = []
+                            if not isinstance(tags, list):
+                                tags = [tags]
+                        # Rechercher les tags de localisation
+                        for d in et.get_tags(
+                            fp,
+                            tags=[
+                                "XMP:GPSLatitude",
+                                "XMP:GPSLongitude",
+                                "XMP:GPSAltitude",
+                            ],
+                        ):
+                            if (
+                                ("XMP:GPSLatitude" in d)
+                                and ("XMP:GPSLongitude" in d)
+                                and ("XMP:GPSAltitude" in d)
+                            ):
+                                latitude = d["XMP:GPSLatitude"]
+                                longitude = d["XMP:GPSLongitude"]
+                                altitude = d["XMP:GPSAltitude"]
+                            else:
+                                logger.error(
+                                    "Pas de coordonnées géographiques définies"
+                                )
+                        # Vérification des tags
+                        logger.debug(tags)
+                        sp = noms(tags)
+                        if len(sp) == 0:
+                            logger.warning(f"Pas d'espèce définie dans {fp}")
+                        nb = qte(tags)
+                        det = details(tags)
+                        logger.debug(f"tags : {sp}/{nb}/{det}")
+                        # Parcours des espèces pour exporter vers autant de lignes
+                        for s in sp:
+                            qt = 1
+                            for n in nb:
+                                if s in n:
+                                    qt = int(n[s])
+                                else:
+                                    qt = max(1, qt)
+                            de = ""
+                            for d in det:
+                                if s in d:
+                                    de = d[s]
+                            com = commune(tags)
+                            logger.debug(
+                                f"{com};{dc};{s};{qt};{de};{latitude};{longitude};{altitude}"
+                            )
+                            exporter.writerow(
+                                [
+                                    com,
+                                    dc,
+                                    s,
+                                    qt,
+                                    de,
+                                    latitude,
+                                    longitude,
+                                    altitude,
+                                ]
+                            )
 
 
 if __name__ == "__main__":
