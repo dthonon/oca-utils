@@ -17,6 +17,7 @@ from typing import Optional
 
 import click
 import exiftool  # type: ignore
+import geopandas as gpd
 import humanize
 import pandas as pd
 import yaml
@@ -24,6 +25,7 @@ from ffmpeg import FFmpeg  # type: ignore
 from ffmpeg import Progress
 from rich.console import Console
 from rich.table import Table
+from shapely.geometry import LineString
 from unidecode import unidecode
 
 
@@ -1014,8 +1016,7 @@ def commune(tags: List[str]) -> str:
 )
 @click.option(
     "--output",
-    required=False,
-    default="",
+    required=True,
     type=click.Path(),
     help="Fichier CSV d'export, pour la commande exporter uniquement",
 )
@@ -1038,110 +1039,136 @@ def exporter(  # noqa: max-complexity=13
     logger.info(f"Export des espèces depuis {input_dir} vers {fic_export}")
 
     # Parcours des répértoires d'origine pour chercher les tags dans les médias
-    with open(fic_export, "w", newline="") as csvfile:
-        exporter = csv.writer(csvfile, delimiter=";")
-        exporter.writerow(
-            [
-                "Commune",
-                "Date",
-                "Espèce",
-                "Quantité",
-                "Détails",
-                "Latitude",
-                "Longitude",
-                "Altitude",
-            ]
+    # with open(fic_export, "w", newline="") as csvfile:
+    #     exporter = csv.writer(csvfile, delimiter=";")
+    #     exporter.writerow(
+    #         [
+    #             "Commune",
+    #             "Date",
+    #             "Espèce",
+    #             "Quantité",
+    #             "Détails",
+    #             "Latitude",
+    #             "Longitude",
+    #             "Altitude",
+    #         ]
+    #     )
+    observations = []
+    obs_table = pd.DataFrame(
+        columns=(
+            "Commune",
+            "Date",
+            "Espèce",
+            "Quantité",
+            "Détails",
+            "Latitude",
+            "Longitude",
+            "Altitude",
         )
-        for chemin, _dirs, fichiers in input_dirp.walk(on_error=print):
-            logger.info(f"Export depuis le répertoire {chemin}")
-            with exiftool.ExifToolHelper() as et:
-                # Export des espèces
-                for f in fichiers:
-                    fp = Path(chemin / f)
-                    if re.match(MEDIA_PAT, fp.suffix):
-                        logger.debug(f"Analyse du fichier {fp}")
-                        # Extraction de la date de prise de vue
-                        for d in et.get_tags(
-                            fp,
-                            tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"],
+    )
+    for chemin, _dirs, fichiers in input_dirp.walk(on_error=print):
+        logger.info(f"Export depuis le répertoire {chemin}")
+        with exiftool.ExifToolHelper() as et:
+            # Export des espèces
+            for f in fichiers:
+                fp = Path(chemin / f)
+                if re.match(MEDIA_PAT, fp.suffix):
+                    logger.debug(f"Analyse du fichier {fp}")
+                    # Extraction de la date de prise de vue
+                    for d in et.get_tags(
+                        fp,
+                        tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"],
+                    ):
+                        logger.debug(d)
+                        # Recherche de la date de prise de vue
+                        if "EXIF:DateTimeOriginal" in d:
+                            dc = d["EXIF:DateTimeOriginal"]
+                        elif "XMP:DateTimeOriginal" in d:
+                            dc = d["XMP:DateTimeOriginal"]
+                        elif "XMP:CreateDate" in d:
+                            dc = d["XMP:CreateDate"]
+                        elif "QuickTime:MediaCreateDate" in d:
+                            dc = d["QuickTime:MediaCreateDate"]
+                        else:
+                            logger.error("Pas de date de prise de vue définie")
+                    # Rechercher les tags de classification
+                    for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
+                        if "XMP:HierarchicalSubject" in d:
+                            tags = d["XMP:HierarchicalSubject"]
+                        else:
+                            tags = []
+                        if not isinstance(tags, list):
+                            tags = [tags]
+                    # Rechercher les tags de localisation
+                    for d in et.get_tags(
+                        fp,
+                        tags=[
+                            "XMP:GPSLatitude",
+                            "XMP:GPSLongitude",
+                            "XMP:GPSAltitude",
+                        ],
+                    ):
+                        if (
+                            ("XMP:GPSLatitude" in d)
+                            and ("XMP:GPSLongitude" in d)
+                            and ("XMP:GPSAltitude" in d)
                         ):
-                            logger.debug(d)
-                            # Recherche de la date de prise de vue
-                            if "EXIF:DateTimeOriginal" in d:
-                                dc = d["EXIF:DateTimeOriginal"]
-                            elif "XMP:DateTimeOriginal" in d:
-                                dc = d["XMP:DateTimeOriginal"]
-                            elif "XMP:CreateDate" in d:
-                                dc = d["XMP:CreateDate"]
-                            elif "QuickTime:MediaCreateDate" in d:
-                                dc = d["QuickTime:MediaCreateDate"]
-                            else:
-                                logger.error("Pas de date de prise de vue définie")
-                        # Rechercher les tags de classification
-                        for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
-                            if "XMP:HierarchicalSubject" in d:
-                                tags = d["XMP:HierarchicalSubject"]
-                            else:
-                                tags = []
-                            if not isinstance(tags, list):
-                                tags = [tags]
-                        # Rechercher les tags de localisation
-                        for d in et.get_tags(
-                            fp,
-                            tags=[
-                                "XMP:GPSLatitude",
-                                "XMP:GPSLongitude",
-                                "XMP:GPSAltitude",
-                            ],
-                        ):
-                            if (
-                                ("XMP:GPSLatitude" in d)
-                                and ("XMP:GPSLongitude" in d)
-                                and ("XMP:GPSAltitude" in d)
-                            ):
-                                latitude = d["XMP:GPSLatitude"]
-                                longitude = d["XMP:GPSLongitude"]
-                                altitude = d["XMP:GPSAltitude"]
-                            else:
-                                logger.error(
-                                    "Pas de coordonnées géographiques définies"
-                                )
-                        # Vérification des tags
-                        logger.debug(tags)
-                        sp = noms(tags)
-                        if len(sp) == 0:
-                            logger.warning(f"Pas d'espèce définie dans {fp}")
-                        nb = qte(tags)
-                        det = details(tags)
-                        logger.debug(f"tags : {sp}/{nb}/{det}")
-                        # Parcours des espèces pour exporter vers autant de lignes
-                        for s in sp:
-                            qt = 1
-                            for n in nb:
-                                if s in n:
-                                    qt = int(n[s])
-                                else:
-                                    qt = max(1, qt)
-                            de = ""
-                            for d in det:
-                                if s in d:
-                                    de = d[s]
-                            com = commune(tags)
-                            logger.debug(
-                                f"{com};{dc};{s};{qt};{de};{latitude};{longitude};{altitude}"
+                            latitude = d["XMP:GPSLatitude"]
+                            longitude = d["XMP:GPSLongitude"]
+                            altitude = d["XMP:GPSAltitude"]
+                        else:
+                            logger.error(
+                                f"Pas de coordonnées géographiques définies dans {fp.name}"
                             )
-                            exporter.writerow(
-                                [
-                                    com,
-                                    dc,
-                                    s,
-                                    qt,
-                                    de,
-                                    latitude,
-                                    longitude,
-                                    altitude,
-                                ]
-                            )
+                    # Vérification des tags
+                    logger.debug(tags)
+                    sp = noms(tags)
+                    if len(sp) == 0:
+                        logger.error(f"Pas d'espèce définie dans {fp.name}")
+                    nb = qte(tags)
+                    det = details(tags)
+                    logger.debug(f"tags : {sp}/{nb}/{det}")
+                    # Parcours des espèces pour exporter vers autant de lignes
+                    for s in sp:
+                        qt = 1
+                        for n in nb:
+                            if s in n:
+                                qt = int(n[s])
+                            else:
+                                qt = max(1, qt)
+                        de = ""
+                        for d in det:
+                            if s in d:
+                                de = d[s]
+                        com = commune(tags)
+                        logger.debug(
+                            f"{com};{dc};{s};{qt};{de};{latitude};{longitude};{altitude}"
+                        )
+                        observations.append(
+                            {
+                                "Commune": com,
+                                "Date": dc,
+                                "Espèce": s,
+                                "Quantité": qt,
+                                "Détails": de,
+                                "Latitude": latitude,
+                                "Longitude": longitude,
+                                "Altitude": altitude,
+                            }
+                        )
+
+    obs_table = pd.DataFrame(observations)
+    obs_geotable = gpd.GeoDataFrame(
+        obs_table,
+        geometry=gpd.points_from_xy(obs_table.Longitude, obs_table.Latitude),
+        crs="EPSG:4326",
+    )
+    obs_geotable = obs_geotable.drop(columns=["Longitude", "Latitude"])
+    obs_geotable = obs_geotable.to_crs("EPSG:2154")
+    obs_geotable["geometry_wkt"] = obs_geotable["geometry"].apply(lambda geom: geom.wkt)
+    obs_geotable = obs_geotable.drop(columns=["geometry"])
+    obs_geotable.to_csv(fic_export, sep=";", index=False)
+    logger.info(f"Export vers {fic_export} terminé")
 
 
 if __name__ == "__main__":

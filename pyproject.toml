@@ -37,6 +37,7 @@ pandas = "^2.2.2"
 humanize = "^4.9.0"
 pandas-stubs = "^2.2.2.240603"
 tensorrt = "^10.9.0.34"
+geopandas = "^1.0.1"
 
 [tool.poetry.dev-dependencies]
 Pygments = ">=2.10.0"
