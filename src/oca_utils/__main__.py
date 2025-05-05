@@ -650,7 +650,12 @@ def copier(  # noqa: max-complexity=13
     # Création des chemin par date de relevé
     with open(rep_origine / "information.yaml") as info:
         infos = yaml.safe_load(info)
-        if "export_oca" in infos and infos["export_oca"]:
+        if "export_oca" not in infos:
+            logger.fatal(
+                "Le fichier information.yaml ne contient pas le tag export_oca"
+            )
+            raise KeyError
+        elif infos["export_oca"]:
             nom = infos["caméra"]["nom"]
             p = rep_origine.parts
             rep_racine = "_".join(
@@ -681,6 +686,10 @@ def copier(  # noqa: max-complexity=13
                     Path(rep_destination / rep_racine / dt).mkdir(
                         parents=True, exist_ok=True
                     )
+        else:
+            logger.info(
+                "Le fichier information.yaml contient le tag export_oca à False, pas de copie"
+            )
 
     type_cp = "incrémentale" if increment else "complète"
     logger.info(f"Copie {type_cp}" + f" depuis {dernier}")
