@@ -3,6 +3,7 @@
 import csv
 import datetime
 import logging
+import math
 import os
 import re
 import secrets
@@ -20,15 +21,30 @@ import exiftool  # type: ignore
 import geopandas as gpd
 import humanize
 import pandas as pd
+import pyproj
+from shapely import Point
+import shapely
 import yaml
 from ffmpeg import FFmpeg  # type: ignore
 from ffmpeg import Progress
 from rich.console import Console
 from rich.table import Table
-from shapely.geometry import LineString
 from unidecode import unidecode
 
+from oca_utils.sp_sensible import sp_sensibles
 
+NON_FAUNE = {
+    "Agriculteur",
+    "Chasseur",
+    "Cueilleur",
+    "Cycliste",
+    # "Moto",
+    "Pêcheur",
+    # "Quad",
+    "Randonneur",
+    "Traileur",
+    # "Voiture",
+}
 MEDIA_PAT = re.compile(r"\.(MP4|mp4|JPG|jpg)")
 PHOTO_PAT = re.compile(r"\.(JPG|jpg)")
 VIDEO_PAT = re.compile(r"\.(MP4|mp4)")
@@ -726,21 +742,7 @@ def copier(  # noqa: max-complexity=13
                     racine = f"IMG_{seq:04}"
                     seq += 1
                     # Parcours des espèces pour copier vers autant de fichiers
-                    sph = len(
-                        set(sp)
-                        & {
-                            "Agriculteur",
-                            "Chasseur",
-                            "Cueilleur",
-                            "Cycliste",
-                            # "Moto",
-                            "Pêcheur",
-                            # "Quad",
-                            "Randonneur",
-                            "Traileur",
-                            # "Voiture",
-                        }
-                    )
+                    sph = len(set(sp) & NON_FAUNE)
                     with tempfile.NamedTemporaryFile(suffix=f.suffix) as fp:
                         if sph > 0:
                             # Présence humaine possible => deface
@@ -996,7 +998,7 @@ def analyser(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexit
     console.print(df_to_table(espèces, table_e))
 
 
-def commune(tags: List[str]) -> str:
+def _commune(tags: List[str]) -> str:
     """Extraction du nom de commune."""
     for t in tags:
         spr = COMMUNE_PAT.match(t)
@@ -1005,6 +1007,35 @@ def commune(tags: List[str]) -> str:
             com = spr.group(1)
 
     return com
+
+
+def _dégrader(x: float, y: float, grain: str) -> tuple[List[float], List[float]]:
+    """Dégradation des coordonnées géographiques."""
+    logger.debug(f"Avant dégradation de {x}, {y} en {grain}")
+    if grain == "M1":
+        # Dégradation à 1 km
+        x = math.floor(x / 1000) * 1000 + 500.0
+        y = math.floor(y / 1000) * 1000 + 500.0
+    elif grain == "M2":
+        # Dégradation à 2 km
+        x = math.floor(x / 2000) * 2000 + 1000.0
+        y = math.floor(y / 2000) * 2000 + 1000.0
+
+    elif grain == "M5":
+        # Dégradation à 5 km
+        x = math.floor(x / 5000) * 5000 + 2500.0
+        y = math.floor(y / 5000) * 5000 + 2500.0
+
+    elif grain == "M10":
+        # Dégradation à 10 km
+        x = math.floor(x / 10000) * 10000 + 5000.0
+        y = math.floor(y / 10000) * 10000 + 5000.0
+
+    else:
+        # Pas de dégradation
+        logger.error(f"Pas de dégradation pour {grain}")
+    logger.debug(f"Après dégradation de {[x]}, {[y]} en {grain}")
+    return ([x], [y])
 
 
 @main.command()
@@ -1038,21 +1069,6 @@ def exporter(  # noqa: max-complexity=13
     input_dirp = Path(input_dir).expanduser()
     logger.info(f"Export des espèces depuis {input_dir} vers {fic_export}")
 
-    # Parcours des répértoires d'origine pour chercher les tags dans les médias
-    # with open(fic_export, "w", newline="") as csvfile:
-    #     exporter = csv.writer(csvfile, delimiter=";")
-    #     exporter.writerow(
-    #         [
-    #             "Commune",
-    #             "Date",
-    #             "Espèce",
-    #             "Quantité",
-    #             "Détails",
-    #             "Latitude",
-    #             "Longitude",
-    #             "Altitude",
-    #         ]
-    #     )
     observations = []
     obs_table = pd.DataFrame(
         columns=(
@@ -1061,15 +1077,22 @@ def exporter(  # noqa: max-complexity=13
             "Espèce",
             "Quantité",
             "Détails",
-            "Latitude",
-            "Longitude",
+            "X_L93",
+            "Y_L93",
             "Altitude",
+            "Géometrie",
         )
     )
+    # Reprojection en Lambert 93
+    from_crs = pyproj.CRS("EPSG:4326")
+    to_crs = pyproj.CRS("EPSG:2154")
+    to_l93 = pyproj.Transformer.from_crs(from_crs, to_crs, always_xy=True)
+
+    # Parcours des répértoires pour chercher les médias
     for chemin, _dirs, fichiers in input_dirp.walk(on_error=print):
         logger.info(f"Export depuis le répertoire {chemin}")
         with exiftool.ExifToolHelper() as et:
-            # Export des espèces
+            # Analyse des fichiers
             for f in fichiers:
                 fp = Path(chemin / f)
                 if re.match(MEDIA_PAT, fp.suffix):
@@ -1113,9 +1136,9 @@ def exporter(  # noqa: max-complexity=13
                             and ("XMP:GPSLongitude" in d)
                             and ("XMP:GPSAltitude" in d)
                         ):
-                            latitude = d["XMP:GPSLatitude"]
-                            longitude = d["XMP:GPSLongitude"]
-                            altitude = d["XMP:GPSAltitude"]
+                            latitude = float(d["XMP:GPSLatitude"])
+                            longitude = float(d["XMP:GPSLongitude"])
+                            altitude = float(d["XMP:GPSAltitude"])
                         else:
                             logger.error(
                                 f"Pas de coordonnées géographiques définies dans {fp.name}"
@@ -1130,43 +1153,62 @@ def exporter(  # noqa: max-complexity=13
                     logger.debug(f"tags : {sp}/{nb}/{det}")
                     # Parcours des espèces pour exporter vers autant de lignes
                     for s in sp:
-                        qt = 1
-                        for n in nb:
-                            if s in n:
-                                qt = int(n[s])
-                            else:
-                                qt = max(1, qt)
-                        de = ""
-                        for d in det:
-                            if s in d:
-                                de = d[s]
-                        com = commune(tags)
-                        logger.debug(
-                            f"{com};{dc};{s};{qt};{de};{latitude};{longitude};{altitude}"
-                        )
-                        observations.append(
-                            {
-                                "Commune": com,
-                                "Date": dc,
-                                "Espèce": s,
-                                "Quantité": qt,
-                                "Détails": de,
-                                "Latitude": latitude,
-                                "Longitude": longitude,
-                                "Altitude": altitude,
-                            }
-                        )
+                        if s in NON_FAUNE:
+                            # Espèce humaine
+                            logger.info(f"Espèce humaine {s} non exportée")
+                        else:
+                            qt = 1
+                            for n in nb:
+                                if s in n:
+                                    qt = int(n[s])
+                                else:
+                                    qt = max(1, qt)
+                            de = ""
+                            for d in det:
+                                if s in d:
+                                    de = d[s]
+                            com = _commune(tags)
+                            coord = shapely.transform(
+                                Point(latitude, longitude),
+                                to_l93.transform,
+                                interleaved=False,
+                            )
+
+                            if s in sp_sensibles:
+                                # Espèce sensible
+                                grain = sp_sensibles[s]["Grain"]
+                                logger.info(f"Espèce sensible {s} dégradée à {grain}")
+                                coord = shapely.transform(
+                                    coord,
+                                    lambda x, y, grain=grain: _dégrader(x, y, grain),
+                                    interleaved=False,
+                                )
+
+                            logger.debug(f"{com};{dc};{s};{qt};{de};{coord};{altitude}")
+                            observations.append(
+                                {
+                                    "Commune": com,
+                                    "Date": dc,
+                                    "Espèce": s,
+                                    "Quantité": qt,
+                                    "Détails": de,
+                                    "X_L93": coord.x,
+                                    "Y_L93": coord.y,
+                                    "Altitude": altitude,
+                                    "Géometrie": coord,
+                                }
+                            )
 
     obs_table = pd.DataFrame(observations)
     obs_geotable = gpd.GeoDataFrame(
         obs_table,
-        geometry=gpd.points_from_xy(obs_table.Longitude, obs_table.Latitude),
-        crs="EPSG:4326",
+        geometry="Géometrie",
+        crs="EPSG:2154",
     )
-    obs_geotable = obs_geotable.drop(columns=["Longitude", "Latitude"])
-    obs_geotable = obs_geotable.to_crs("EPSG:2154")
-    obs_geotable["geometry_wkt"] = obs_geotable["geometry"].apply(lambda geom: geom.wkt)
-    obs_geotable = obs_geotable.drop(columns=["geometry"])
+    # obs_geotable = obs_geotable.drop(columns=["Longitude", "Latitude"])
+    # obs_geotable = obs_geotable.to_crs("EPSG:2154")
+    # obs_geotable["geometry_wkt"] = obs_geotable["geometry"].apply(lambda geom: geom.wkt)
+    # obs_geotable = obs_geotable.drop(columns=["geometry"])
     obs_geotable.to_csv(fic_export, sep=";", index=False)
     logger.info(f"Export vers {fic_export} terminé")
 

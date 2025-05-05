@@ -1,0 +1,67 @@
+"""
+Espèces sensibles
+=================
+
+Ce module est utilisé pour gérer les espèces sensibles dans le cadre de la
+protection de la biodiversité. Il contient une liste d'espèces sensibles
+ainsi que des informations sur leur statut biologique et le grain de
+dégradation de la précision géographique.
+"""
+
+sp_sensibles = {
+    "Castor d'Europe": {"Statut": "Reproduction", "Grain": "M1"},
+    "Gélinotte des bois": {"Grain": "M1"},
+    "Vipère péliade": {"Grain": "M1"},
+    "Gypaète barbu": {"Statut": "Reproduction", "Grain": "M2"},
+    "Pélobate cultripède": {"Grain": "M5"},
+    "Loutre d'Europe": {"Statut": "Reproduction", "Grain": "M5"},
+    "Aigrette garzette": {"Statut": "Reproduction & Dortoir", "Grain": "M5"},
+    "Barge à queue noire": {"Statut": "Reproduction", "Grain": "M5"},
+    "Bihoreau gris": {"Statut": "Reproduction & Dortoir", "Grain": "M5"},
+    "Blongio nain": {"Statut": "Reproduction", "Grain": "M5"},
+    "Bruant ortolan": {"Statut": "Reproduction", "Grain": "M5"},
+    "Butor étoilé": {"Statut": "Reproduction", "Grain": "M5"},
+    "Chevêchette d'Europe": {"Grain": "M5"},
+    "Chouette de Tengmalm": {"Grain": "M5"},
+    "Circaète Jean-le-Blanc": {"Statut": "Reproduction", "Grain": "M5"},
+    "Elanion blanc": {"Statut": "Reproduction", "Grain": "M5"},
+    "Grand cormoran": {"Statut": "Reproduction & Dortoir", "Grain": "M5"},
+    "Grand-duc d'Europe": {"Statut": "Reproduction", "Grain": "M5"},
+    "Grande aigrette": {"Statut": "Reproduction & Dortoir", "Grain": "M5"},
+    "Guêpier d'Europe": {"Statut": "Reproduction", "Grain": "M5"},
+    "Guiffette moustac": {"Statut": "Reproduction", "Grain": "M5"},
+    "Héron cendré": {"Statut": "Reproduction & Dortoir", "Grain": "M5"},
+    "Héron garde-boeufs": {"Statut": "Reproduction & Dortoir", "Grain": "M5"},
+    "Héron pourpré": {"Statut": "Reproduction", "Grain": "M5"},
+    "Ibis falcinelle": {"Statut": "Reproduction & Dortoir", "Grain": "M5"},
+    "Lagopède alpin": {"Grain": "M5"},
+    "Outarde canepetière": {"Statut": "Reproduction", "Grain": "M5"},
+    "Pic tridactyle": {"Grain": "M5"},
+    "Pie-grièche méridionale": {"Grain": "M5"},
+    "Râle des genêts": {"Statut": "Reproduction", "Grain": "M5"},
+    "Spatule blanche": {"Statut": "Reproduction & Dortoir", "Grain": "M5"},
+    "Tétras lyre": {"Grain": "M5"},
+    "Salamandre noire": {"Grain": "M10"},
+    "Grand murin": {"Grain": "M10"},
+    "Grand rhinolophe": {"Grain": "M10"},
+    "Miniopte de Schreibers": {"Grain": "M10"},
+    "Murin à oreilles échancrées": {"Grain": "M10"},
+    "Murin de Capaccini": {"Grain": "M10"},
+    "Petit murin": {"Grain": "M10"},
+    "Rynolophe euryale": {"Grain": "M10"},
+    "Loup": {"Grain": "M10"},
+    "Loup gris": {"Grain": "M10"},
+    "Chacal doré": {"Statut": "Reproduction", "Grain": "M10"},
+    "Aigle botté": {"Statut": "Reproduction", "Grain": "M10"},
+    "Aigle de Bonelli": {"Statut": "Reproduction", "Grain": "M10"},
+    "Aigle royal": {"Statut": "Reproduction", "Grain": "M10"},
+    "Autour des palombes": {"Statut": "Reproduction", "Grain": "M10"},
+    "Balbuzard pêcheur": {"Statut": "Reproduction", "Grain": "M10"},
+    "Cigogne noire": {"Statut": "Reproduction", "Grain": "M10"},
+    "Faucon pèlerin": {"Statut": "Reproduction", "Grain": "M10"},
+    "Grand tétras": {"Grain": "M10"},
+    "Vautour fauve": {"Statut": "Reproduction", "Grain": "M10"},
+    "Vautour moine": {"Statut": "Reproduction", "Grain": "M10"},
+    "Vautour percnoptère": {"Statut": "Reproduction", "Grain": "M10"},
+    "Lynx boréal": {"Grain": "M10"},
+}
