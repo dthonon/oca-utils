@@ -1,6 +1,5 @@
 """Command-line interface."""
 
-import csv
 import datetime
 import logging
 import math
@@ -636,14 +635,14 @@ def géotagger(ctx: click.Context, input_dir: str, dry_run: bool) -> None:
     "--from_dir",
     required=True,
     type=click.Path(exists=True, dir_okay=True, readable=True),
-    help="Répertoire des fichiers à traiter",
+    help="Répertoire des fichiers à copier",
 )
 @click.option(
     "--to_dir",
     required=False,
     default="",
     type=click.Path(),
-    help="Fichier CSV d'export, pour la commande exporter uniquement",
+    help="Répertoire de destination des fichiers, pour la commande copier uniquement",
 )
 @click.option("--dry_run", is_flag=True, help="Mode test, sans renommage des fichiers.")
 @click.option(
@@ -658,12 +657,12 @@ def copier(  # noqa: max-complexity=13
         logger.fatal(f"Le répertoire d'entrée {from_dir} n'est pas valide")
         raise FileNotFoundError
     rep_origine = Path(from_dir).expanduser()
-    logger.info(f"Renommage des photos et vidéos depuis {rep_origine}")
+    logger.info(f"Copie des photos et vidéos depuis {rep_origine}")
     if not Path(to_dir).expanduser().is_dir():
         logger.fatal(f"Le répertoire de destination {to_dir} n'est pas valide")
         raise FileNotFoundError
     rep_destination = Path(to_dir).expanduser()
-    logger.info(f"Renommage des photos et vidéos vers {rep_destination}")
+    logger.info(f"Copie des photos et vidéos vers {rep_destination}")
 
     # Création des chemin par date de relevé
     with open(rep_origine / "information.yaml") as info:
