@@ -1,43 +1,41 @@
-[project]
+[tool.poetry]
 name = "oca-utils"
 version = "0.0.0"
 description = "OCA Utils"
+authors = ["Daniel Thonon <d.thonon9@outlook.com>"]
 license = "MIT"
-dynamic = ["version", "classifiers"]
 readme = "README.md"
-authors = [{ name = "Daniel Thonon", email = "d.thonon9@outlook.com" }]
-requires-python = '>=3.11,<4.0'
-dependencies = [
-    "click (>=8.3.1,<9.0.0)",
-    "pandas (>=2.3.3,<3.0.0)",
-    "pandas-stubs (>=2.3.3.251201,<3.0.0.0)",
-    "geopandas (>=1.1.1,<2.0.0)",
-    "pyproj (>=3.7.2,<4.0.0)",
-    "shapely (>=2.1.2,<3.0.0)",
-    "humanize (>=4.14.0,<5.0.0)",
-    "deface (>=1.5.0,<2.0.0)",
-    "onnx (>=1.20.0,<2.0.0)",
-    "onnxruntime-gpu (>=1.23.2,<2.0.0)",
-    "exif (>=1.6.1,<2.0.0)",
-    "unidecode (>=1.4.0,<2.0.0)",
-    "pyyaml (>=6.0.3,<7.0.0)",
-    "types-pyyaml (>=6.0.12.20250915,<7.0.0.0)",
-    "python-ffmpeg (>=2.0.12,<3.0.0)",
-    "rich (>=14.2.0,<15.0.0)",
-    "pyexiftool (>=0.5.6,<0.6.0)",
-]
-
-[project.urls]
 homepage = "https://github.com/dthonon/oca-utils"
 repository = "https://github.com/dthonon/oca-utils"
 documentation = "https://oca-utils.readthedocs.io"
+classifiers = ["Development Status :: 3 - Alpha"]
+
+[tool.poetry.urls]
 Changelog = "https://github.com/dthonon/oca-utils/releases"
 
-[tool.poetry]
-requires-poetry = '>=2.0'
-
-[project.scripts]
-oca-utils = "oca_utils.__main__:main"
+[tool.poetry.dependencies]
+python = "^3.10"
+click = ">=8.0.1"
+exif = "^1.6.0"
+xmltodict = "^0.13.0"
+types-xmltodict = "^0.13.0.3"
+deface = "^1.5.0"
+onnx = "^1.20.0"
+unidecode = "^1.3.7"
+python-ffmpeg = "^2.0.10"
+matplotlib = "^3.8.2"
+plotbitrate = "^1.1.2.0"
+pyexiftool = "^0.5.6"
+pyyaml = "^6.0.1"
+rich = "^13.7.1"
+types-pyyaml = "^6.0.12.20240311"
+onnxruntime-gpu = "^1.23.2"
+numpy = "<2"
+pandas = "^2.2.2"
+humanize = "^4.9.0"
+pandas-stubs = "^2.2.2.240603"
+tensorrt = "^10.9.0.34"
+geopandas = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 Pygments = ">=2.10.0"
@@ -65,9 +63,8 @@ typeguard = ">=2.13.3"
 xdoctest = { extras = ["colors"], version = ">=0.15.10" }
 myst-parser = { version = ">=0.16.1" }
 
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry.scripts]
+oca-utils = "oca_utils.__main__:main"
 
 [tool.coverage.paths]
 source = ["src", "*/site-packages"]
@@ -93,3 +90,7 @@ pretty = true
 show_column_numbers = true
 show_error_codes = true
 show_error_context = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
