@@ -242,35 +242,39 @@ def convertir(
                     def on_progress(progress: Progress) -> None:
                         logger.debug(progress)
 
-                    ffmpeg.execute()
+                    try:
+                        # Conversion AVI vers MP4
+                        ffmpeg.execute()
 
-                    # Retour à la date originelle
-                    os.utime(g, (mtime, mtime))
+                        # Retour à la date originelle
+                        os.utime(g, (mtime, mtime))
 
-                    # Copie des tags EXIF
-                    fx = Path(str(f))
-                    gx = Path(str(g))
-                    if fx.exists():
-                        et.execute(
-                            "-Tagsfromfile",
-                            str(fx),
-                            "-IPTC:All",
-                            "-XMP:All",
-                            str(gx),
-                        )
-                    gx.with_suffix(".mp4_original").unlink(missing_ok=True)
-                    fx = Path(str(f) + ".xmp")
-                    gx = Path(str(g) + ".xmp")
-                    if fx.exists():
-                        et.execute(
-                            "-Tagsfromfile",
-                            str(fx),
-                            "-IPTC:All",
-                            "-XMP:All",
-                            str(gx),
-                        )
-                        os.utime(gx, (mtime, mtime))
-                    gx.with_suffix(".xmp_original").unlink(missing_ok=True)
+                        # Copie des tags EXIF
+                        fx = Path(str(f))
+                        gx = Path(str(g))
+                        if fx.exists():
+                            et.execute(
+                                "-Tagsfromfile",
+                                str(fx),
+                                "-IPTC:All",
+                                "-XMP:All",
+                                str(gx),
+                            )
+                        gx.with_suffix(".mp4_original").unlink(missing_ok=True)
+                        fx = Path(str(f) + ".xmp")
+                        gx = Path(str(g) + ".xmp")
+                        if fx.exists():
+                            et.execute(
+                                "-Tagsfromfile",
+                                str(fx),
+                                "-IPTC:All",
+                                "-XMP:All",
+                                str(gx),
+                            )
+                            os.utime(gx, (mtime, mtime))
+                        gx.with_suffix(".xmp_original").unlink(missing_ok=True)
+                    except Exception as e:
+                        logger.error(f"Erreur de conversion de {f.name} : {e}")
 
 
 def _renommer_temp(rep_origine: Path, dry_run: bool, force: bool) -> None:
@@ -752,9 +756,10 @@ def copier(  # noqa: max-complexity=13
                                     "run",
                                     "deface",
                                     "--keep-metadata",
+                                    "--ffmpeg-config",
+                                    '{"macro_block_size": 8}',
                                     "--execution-provider",
-                                    "CPUExecutionProvider",
-                                    # "TensorrtExecutionProvider",
+                                    "CUDAExecutionProvider",
                                     "--output",
                                     f"{fp.name}",
                                     f"{f}",
