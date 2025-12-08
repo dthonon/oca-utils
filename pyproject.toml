@@ -3,10 +3,10 @@ name = "oca-utils"
 version = "0.0.0"
 description = "OCA Utils"
 license = "MIT"
-dynamic = ["version", "classifiers"]
 readme = "README.md"
 authors = [{ name = "Daniel Thonon", email = "d.thonon9@outlook.com" }]
 requires-python = '>=3.11,<4.0'
+classifiers = ["Development Status :: 3 - Alpha"]
 dependencies = [
     "click (>=8.3.1,<9.0.0)",
     "pandas (>=2.3.3,<3.0.0)",
