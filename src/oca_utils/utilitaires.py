@@ -1,15 +1,17 @@
-"""Docstring pour oca_utils.utilitaires"""
+"""
+Fonctions utilitaires pour l'extraction des noms, quantités et détails des espèces.
+"""
 
 import re
-from typing import Dict, List
-from oca_utils.constantes import (
-    NATURE_PAT,
-    ESPECE_PAT,
-    QTE_PAT,
-    NB_PAT,
-    DET_PAT,
-    DETAILS_PAT,
-)
+from typing import Dict
+from typing import List
+
+from oca_utils.constantes import DET_PAT
+from oca_utils.constantes import DETAILS_PAT
+from oca_utils.constantes import ESPECE_PAT
+from oca_utils.constantes import NATURE_PAT
+from oca_utils.constantes import NB_PAT
+from oca_utils.constantes import QTE_PAT
 
 
 def noms(tags: List[str]) -> List[str]:

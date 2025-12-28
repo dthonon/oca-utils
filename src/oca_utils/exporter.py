@@ -1,10 +1,12 @@
-"""Module for exporting species observations from media files in a directory to a CSV file."""
+"""
+Module d'exportation des observations d'espèces depuis les fichiers média
+dans un répertoire vers un fichier CSV.
+"""
 
 import logging
 import math
 import re
 from pathlib import Path
-from typing import Dict
 from typing import List
 
 import click
@@ -32,11 +34,13 @@ logging.basicConfig(
 
 def _commune(tags: List[str]) -> str:
     """Extraction du nom de commune."""
+    com = "Inconnu"
     for t in tags:
         spr = COMMUNE_PAT.match(t)
         if spr:
             # Le tag commence par Continent... et se termine par la commune
             com = spr.group(1)
+            break
 
     return com
 
@@ -121,7 +125,9 @@ def exporter(  # noqa: max-complexity=13
     to_l93 = pyproj.Transformer.from_crs(from_crs, to_crs, always_xy=True)
 
     # Parcours des répértoires pour chercher les médias
+    dc = "0000:00:00 00:00:00"
     tags = []
+    latitude = longitude = altitude = 0.0
     for chemin, _dirs, fichiers in input_dirp.walk(on_error=print):
         logger.info(f"Export depuis le répertoire {chemin}")
         with exiftool.ExifToolHelper() as et:
@@ -151,10 +157,10 @@ def exporter(  # noqa: max-complexity=13
                     for d in et.get_tags(fp, tags=["HierarchicalSubject"]):
                         if "XMP:HierarchicalSubject" in d:
                             tags = d["XMP:HierarchicalSubject"]
-                        else:
-                            tags = []
-                        if not isinstance(tags, list):
-                            tags = [tags]
+                            # if not isinstance(tags, list):
+                            #     tags = [tags]
+                            break
+
                     # Rechercher les tags de localisation
                     for d in et.get_tags(
                         fp,
@@ -201,9 +207,9 @@ def exporter(  # noqa: max-complexity=13
                                 if s in d:
                                     de = d[s]
                             com = _commune(tags)
-                            coord = shapely.transform(
+                            coord = shapely.transform(  # type: ignore
                                 Point(latitude, longitude),
-                                to_l93.transform,
+                                to_l93.transform,  # type: ignore
                                 interleaved=False,
                             )
 
@@ -211,9 +217,9 @@ def exporter(  # noqa: max-complexity=13
                                 # Espèce sensible
                                 grain = sp_sensibles[s]["Grain"]
                                 logger.info(f"Espèce sensible {s} dégradée à {grain}")
-                                coord = shapely.transform(
+                                coord = shapely.transform(  # type: ignore
                                     coord,
-                                    lambda x, y, grain=grain: _dégrader(x, y, grain),
+                                    lambda x, y, grain=grain: _dégrader(x, y, grain),  # type: ignore
                                     interleaved=False,
                                 )
 

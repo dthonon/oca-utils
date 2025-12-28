@@ -1,5 +1,5 @@
 """
-Docstring pour oca_utils.constantes
+Constantes utilisées dans oca_utils.
 """
 
 import re
