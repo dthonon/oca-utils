@@ -2184,6 +2184,7 @@ optional = false
 python-versions = ">=3.6"
 groups = ["main"]
 files = [
+    {file = "plum-py-0.8.7.tar.gz", hash = "sha256:40a25a70f7fd213f57cdd1decc65874df2d213d19d63478a1addcca748c13c4e"},
     {file = "plum_py-0.8.7-py3-none-any.whl", hash = "sha256:d791f059ef159adbe3c3b036557b5b431fa07db226a9de106a74e5e57441741d"},
 ]
 
