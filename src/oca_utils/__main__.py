@@ -10,22 +10,32 @@ import subprocess  # noqa: S404
 import tempfile
 import uuid
 from pathlib import Path
-
 from typing import Optional
 
 import click
 import exiftool  # type: ignore
 import humanize
 import pandas as pd
-
 import yaml
-from ffmpeg import FFmpeg, Progress  # type: ignore
+from ffmpeg import FFmpeg  # type: ignore
+from ffmpeg import Progress
 from rich.console import Console
 from rich.table import Table
 from unidecode import unidecode
 
 from . import exporter
-from .constantes import AVI_PAT, CORRECT_PAT, MEDIA_PAT, NON_FAUNE
+from .constantes import AVI_PAT
+from .constantes import CORRECT_PAT
+from .constantes import DEPT_PAT
+from .constantes import MEDIA_PAT
+from .constantes import NON_FAUNE
+from .constantes import PHOTO_PAT
+from .constantes import VIDEO_PAT
+from .constantes import XMPO_PAT
+from .utilitaires import corrige
+from .utilitaires import details
+from .utilitaires import noms
+from .utilitaires import qte
 
 
 logger = logging.getLogger(__name__)
