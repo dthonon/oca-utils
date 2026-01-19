@@ -1,10 +1,19 @@
 """
-Fonctions utilitaires pour l'extraction des noms, quantités et détails des espèces.
+Fonctions utilitairess pour OCA Utils.
+
+Fonctions utilitairess pour OCA Utils, notamment :
+  - la conversion des DataFrame en tableaux Rich,
+  - l'extraction des noms, quantités et détails des espèces,
+  - la correction des noms d'espèces au format OCA.
 """
 
 import re
 from typing import Dict
 from typing import List
+from typing import Optional
+
+import pandas as pd
+from rich.table import Table
 
 from oca_utils.constantes import DET_PAT
 from oca_utils.constantes import DETAILS_PAT
@@ -12,6 +21,42 @@ from oca_utils.constantes import ESPECE_PAT
 from oca_utils.constantes import NATURE_PAT
 from oca_utils.constantes import NB_PAT
 from oca_utils.constantes import QTE_PAT
+
+
+def df_to_table(
+    pandas_dataframe: pd.DataFrame,
+    rich_table: Table,
+    show_index: bool = True,
+    index_name: Optional[str] = None,
+) -> Table:
+    """Convert a pandas.DataFrame obj into a rich.Table obj.
+
+    :param pandas_dataframe:
+        A Pandas DataFrame to be converted to a rich Table.
+    :param rich_table:
+        A rich Table that should be populated by the DataFrame values.
+    :param show_index:
+        Add a column with a row count to the table. Defaults to True.
+    :param index_name:
+        The column name to give to the index column. Defaults to None, showing no value.
+
+    :returns:
+        Table: The rich Table instance passed, populated with the DataFrame values.
+    """
+    if show_index:
+        index_name = str(index_name) if index_name else ""
+        rich_table.add_column(index_name)
+    rich_indexes = pandas_dataframe.index.to_list()
+
+    for column in pandas_dataframe.columns:
+        rich_table.add_column(str(column), justify="right")
+
+    for index, value_list in enumerate(pandas_dataframe.values.tolist()):
+        row = [str(rich_indexes[index])] if show_index else []
+        row += [str(x) for x in value_list]
+        rich_table.add_row(*row)
+
+    return rich_table
 
 
 def noms(tags: List[str]) -> List[str]:

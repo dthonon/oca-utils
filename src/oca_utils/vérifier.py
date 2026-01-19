@@ -1,6 +1,9 @@
 """
 Vérification du tagging des photos et vidéos.
-Bilan de la vérification affiché en fin de traitement.
+
+Vérification de la présence et de la cohérence des tags
+des photos et vidéos transmises, avec génération d'un
+bilan de la vérification affiché en fin de traitement.
 """
 
 import logging

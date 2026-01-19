@@ -10,11 +10,9 @@ import subprocess  # noqa: S404
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Optional
 
 import click
 import exiftool  # type: ignore
-import humanize
 import pandas as pd
 import yaml
 from ffmpeg import FFmpeg  # type: ignore
@@ -25,15 +23,17 @@ from unidecode import unidecode
 
 from . import exporter
 from . import vérifier
+from . import comparer
 from .constantes import AVI_PAT
 from .constantes import CORRECT_PAT
+from .constantes import OCA_PAT
 from .constantes import DEPT_PAT
 from .constantes import MEDIA_PAT
 from .constantes import NON_FAUNE
-from .constantes import PHOTO_PAT
-from .constantes import VIDEO_PAT
 from .constantes import XMPO_PAT
+
 from .utilitaires import corrige
+from .utilitaires import df_to_table
 from .utilitaires import details
 from .utilitaires import noms
 from .utilitaires import qte
@@ -68,42 +68,7 @@ def main(
 
 main.add_command(exporter.exporter)
 main.add_command(vérifier.vérifier)
-
-
-def df_to_table(
-    pandas_dataframe: pd.DataFrame,
-    rich_table: Table,
-    show_index: bool = True,
-    index_name: Optional[str] = None,
-) -> Table:
-    """Convert a pandas.DataFrame obj into a rich.Table obj.
-
-    :param pandas_dataframe:
-        A Pandas DataFrame to be converted to a rich Table.
-    :param rich_table:
-        A rich Table that should be populated by the DataFrame values.
-    :param show_index:
-        Add a column with a row count to the table. Defaults to True.
-    :param index_name:
-        The column name to give to the index column. Defaults to None, showing no value.
-
-    :returns:
-        Table: The rich Table instance passed, populated with the DataFrame values.
-    """
-    if show_index:
-        index_name = str(index_name) if index_name else ""
-        rich_table.add_column(index_name)
-    rich_indexes = pandas_dataframe.index.to_list()
-
-    for column in pandas_dataframe.columns:
-        rich_table.add_column(str(column), justify="right")
-
-    for index, value_list in enumerate(pandas_dataframe.values.tolist()):
-        row = [str(rich_indexes[index])] if show_index else []
-        row += [str(x) for x in value_list]
-        rich_table.add_row(*row)
-
-    return rich_table
+main.add_command(comparer.comparer)
 
 
 @main.command()
@@ -462,6 +427,8 @@ def copier(  # noqa: max-complexity=13
     logger.info(f"Copie des photos et vidéos vers {rep_destination}")
 
     # Création des chemin par date de relevé
+    dernier = "00000000"
+    tags = None
     with open(rep_origine / "information.yaml") as info:
         infos = yaml.safe_load(info)
         if "export_oca" not in infos:
@@ -488,7 +455,6 @@ def copier(  # noqa: max-complexity=13
 
             relevés = [date_oca(dt) for dt in infos["relevé"]]
 
-            dernier = "00000000"
             for dt in sorted(relevés):
                 if Path(rep_destination / rep_racine / dt).is_dir():
                     # Mémorisation de la date de dernier relevé, pour incrément
@@ -633,119 +599,6 @@ def copier(  # noqa: max-complexity=13
                                 )
                                 os.utime(gx, (mtime, mtime))
                                 gx.with_suffix(".mp4_original").unlink(missing_ok=True)
-
-
-@main.command()
-@click.option(
-    "--from_dir",
-    required=True,
-    type=click.Path(exists=True, dir_okay=True, readable=True),
-    help="Répertoire des fichiers à traiter",
-)
-@click.option(
-    "--to_dir",
-    required=False,
-    default="",
-    type=click.Path(),
-    help="Fichier CSV d'export, pour la commande exporter uniquement",
-)
-@click.pass_context
-def comparer(  # noqa: max-complexity=13
-    ctx: click.Context, from_dir: str, to_dir: str
-) -> None:
-    """Vérification et bilan des photos et vidéos transmises."""
-    if not Path(from_dir).expanduser().is_dir():
-        logger.fatal(f"Le répertoire d'entrée {from_dir} n'est pas valide")
-        raise FileNotFoundError
-    rep_origine = Path(from_dir).expanduser()
-    if not Path(to_dir).expanduser().is_dir():
-        logger.fatal(f"Le répertoire de destination {to_dir} n'est pas valide")
-        raise FileNotFoundError
-    rep_destination = Path(to_dir).expanduser()
-    logger.info(
-        f"Vérification et bilan des photos et vidéos transférées dans {rep_destination}"
-    )
-    lg_destination = len(rep_destination.parts)
-
-    synthèse = pd.DataFrame(
-        columns=(
-            "Répertoire",
-            "Source",
-            "Destination",
-            "Ecart",
-            "Taille",
-            "Médias",
-            "Photos",
-            "Vidéos",
-        )
-    )
-    synthèse.set_index(["Répertoire"], inplace=True)
-
-    # Parcours des répértoires d'origine pour chercher les photos et vidéos
-    for chemin, _dirs, fichiers in rep_origine.walk(on_error=print):
-        chemin_p = chemin.parts
-        if Path(chemin / "information.yaml").exists():
-            with open(chemin / "information.yaml") as info:
-                infos = yaml.safe_load(info)
-                if not ("export_oca" in infos and not infos["export_oca"]):
-                    nom = infos["caméra"]["nom"]
-                    rep_racine = "_".join(
-                        (
-                            nom,
-                            re.sub(DEPT_PAT, "", chemin_p[-2]),
-                            chemin_p[-1].replace("_", ""),
-                        )
-                    )
-                    logger.debug(
-                        f"Compte dans le répertoire d'origine {chemin} vers {rep_racine}"
-                    )
-                    synthèse.loc[rep_racine, "Source"] = len(fichiers)
-                    synthèse.loc[rep_racine, "Destination"] = (
-                        1  # En comptant information.yaml
-                    )
-                    synthèse.loc[rep_racine, "Taille"] = 0
-                    synthèse.loc[rep_racine, "Photos"] = 0
-                    synthèse.loc[rep_racine, "Vidéos"] = 0
-
-    # Parcours des répértoires destination pour chercher les photos et vidéos
-    for chemin, _dirs, fichiers in rep_destination.walk(on_error=print):
-        logger.debug(f"Compte dans le répertoire de destination {chemin}")
-        chemin_p = chemin.parts
-        if len(chemin_p) == lg_destination + 2 and not chemin_p[-2].startswith("."):
-            # Répertoire contenant les médias
-            # Calcul des tailles et types de médias
-            synthèse.loc[chemin_p[-2], "Destination"] += len(fichiers)
-            synthèse.loc[chemin_p[-2], "Taille"] += sum(
-                (chemin / file).stat().st_size for file in fichiers
-            )
-            synthèse.loc[chemin_p[-2], "Photos"] += len(
-                [f for f in fichiers if re.match(PHOTO_PAT, Path(f).suffix)]
-            )
-            synthèse.loc[chemin_p[-2], "Vidéos"] += len(
-                [f for f in fichiers if re.match(VIDEO_PAT, Path(f).suffix)]
-            )
-
-    synthèse["Médias"] = synthèse["Photos"] + synthèse["Vidéos"]
-    synthèse["Ecart"] = synthèse["Destination"] - synthèse["Source"]
-    synthèse.sort_index(inplace=True)
-    total = synthèse.aggregate(func="sum")
-    synthèse.Taille = synthèse.Taille.apply(lambda t: humanize.naturalsize(t, True))
-    console = Console()
-
-    table_f = Table(title="Synthèse fichiers OCA")
-    table_f = df_to_table(synthèse, table_f)
-    table_f.add_section()
-    table_f.add_row(
-        "TOTAL",
-        str(total.Source),
-        str(total.Destination),
-        str(total.Ecart),
-        humanize.naturalsize(total.Taille, True),
-        str(total.Médias),
-        str(total.Photos),
-        str(total.Vidéos),
-    )
-    console.print(table_f)
 
 
 @main.command()
