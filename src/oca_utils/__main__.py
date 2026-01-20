@@ -356,7 +356,7 @@ def géotagger(ctx: click.Context, input_dir: str, dry_run: bool) -> None:
         raise FileNotFoundError
     logger.info(f"Géotagging des photos et vidéos dans {rep_origine}")
 
-    with open(rep_origine / "information.yaml") as info:
+    with open(rep_origine / "../information.yaml") as info:
         infos = yaml.safe_load(info)
         latitude = infos["caméra"]["latitude"]
         longitude = infos["caméra"]["longitude"]
@@ -429,7 +429,7 @@ def copier(  # noqa: max-complexity=13
     # Création des chemin par date de relevé
     dernier = "00000000"
     tags = None
-    with open(rep_origine / "information.yaml") as info:
+    with open(rep_origine / "../information.yaml") as info:
         infos = yaml.safe_load(info)
         if "export_oca" not in infos:
             logger.fatal(
@@ -440,13 +440,13 @@ def copier(  # noqa: max-complexity=13
             nom = infos["caméra"]["nom"]
             p = rep_origine.parts
             rep_racine = "_".join(
-                (nom, re.sub(DEPT_PAT, "", p[-2]), p[-1].replace("_", ""))
+                (nom, re.sub(DEPT_PAT, "", p[-3]), p[-2].replace("_", ""))
             )
             if not Path(rep_destination / rep_racine).is_dir():
                 logger.info(f"Création du répertoire racine : {rep_racine}")
                 Path(rep_destination / rep_racine).mkdir(parents=False)
             shutil.copy2(
-                rep_origine / "information.yaml", Path(rep_destination / rep_racine)
+                rep_origine / "../information.yaml", Path(rep_destination / rep_racine)
             )
 
             def date_oca(dt: str) -> str:
@@ -606,7 +606,7 @@ def copier(  # noqa: max-complexity=13
     "--input_dir",
     required=True,
     type=click.Path(exists=True, dir_okay=True, readable=True),
-    help="Répertoire des fichiers AVI à convertir",
+    help="Répertoire racine des fichiers au format OCA à analyser",
 )
 @click.pass_context
 def analyser(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexity=13
