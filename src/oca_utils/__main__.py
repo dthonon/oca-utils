@@ -247,22 +247,24 @@ def _renommer_seq_date(  # noqa: max-complexity=13
             if re.match(MEDIA_PAT, f.suffix) and not re.match(CORRECT_PAT, f.name):
                 logger.debug(f.name)
                 # Extraction de la date de prise de vue
-                for d in et.get_tags(
-                    f, tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"]
-                ):
-                    logger.debug(d)
-                    # Recherche de la date de prise de vue
-                    if "EXIF:DateTimeOriginal" in d:
-                        dc = d["EXIF:DateTimeOriginal"]
-                    elif "XMP:DateTimeOriginal" in d:
-                        dc = d["XMP:DateTimeOriginal"]
-                    elif "XMP:CreateDate" in d:
-                        dc = d["XMP:CreateDate"]
-                    elif "QuickTime:MediaCreateDate" in d:
-                        dc = d["QuickTime:MediaCreateDate"]
-                    else:
-                        dc = ""
-                    s_fichiers.append((dc, f))
+                dc = ""
+                try:
+                    for d in et.get_tags(
+                        f, tags=["CreateDate", "DateTimeOriginal", "MediaCreateDate"]
+                    ):
+                        logger.debug(d)
+                        # Recherche de la date de prise de vue
+                        if "EXIF:DateTimeOriginal" in d:
+                            dc = d["EXIF:DateTimeOriginal"]
+                        elif "XMP:DateTimeOriginal" in d:
+                            dc = d["XMP:DateTimeOriginal"]
+                        elif "XMP:CreateDate" in d:
+                            dc = d["XMP:CreateDate"]
+                        elif "QuickTime:MediaCreateDate" in d:
+                            dc = d["QuickTime:MediaCreateDate"]
+                        s_fichiers.append((dc, f))
+                except Exception as e:
+                    logger.error(f"Erreur d'extraction de la date de {f.name} : {e}")
 
         for dc, f in sorted(s_fichiers, key=lambda dcf: dcf[0]):
             # Création du préfixe IMG_nnnn
@@ -325,7 +327,7 @@ def _renommer_seq_date(  # noqa: max-complexity=13
 )
 @click.pass_context
 def renommer(ctx: click.Context, input_dir: str, dry_run: bool, force: bool) -> None:
-    """Convertit les vidéos AVI ou  MP4 en mp4 optimisé."""
+    """Renomme les photos et vidéos selon leur date de prise de vue."""
     rep_origine = Path(input_dir).expanduser()
     if not rep_origine.is_dir():
         logger.fatal(f"Le répertoire d'entrée {input_dir} n'est pas valide")
