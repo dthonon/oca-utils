@@ -1,4 +1,6 @@
 """
+Listing CSV des observations d'espèces depuis les fichiers média dans un répertoire.
+
 Module d'exportation des observations d'espèces depuis les fichiers média
 dans un répertoire vers un fichier CSV.
 """
