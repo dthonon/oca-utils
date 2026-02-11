@@ -15,9 +15,12 @@ import exiftool  # type: ignore
 from rich.console import Console
 from rich.table import Table
 
+from oca_utils.constantes import AVI_PAT
 from oca_utils.constantes import CORRECT_PAT
 from oca_utils.constantes import MEDIA_PAT
+from oca_utils.constantes import PLACE_PAT
 from oca_utils.utilitaires import details
+from oca_utils.utilitaires import locs
 from oca_utils.utilitaires import noms
 from oca_utils.utilitaires import qte
 
@@ -44,33 +47,44 @@ def vérifier(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexi
         raise FileNotFoundError
     logger.info(f"Vérification du tagging des photos et vidéos dans {rep_origine}")
 
-    fichiers = sorted(rep_origine.glob("*.*"))
+    fichiers = sorted(rep_origine.glob("**"))
     nb_fic = 0
+    nb_nconv = 0
     nb_err = 0
     nb_sp = 0
     nb_qte = 0
     nb_det = 0
+    nb_loc = 0
     nb_geo = 0
     with exiftool.ExifToolHelper() as et:
         for f in fichiers:
             # Liste des fichiers triés par date de prise de vue
-            if re.match(MEDIA_PAT, f.suffix):
+            if re.match(MEDIA_PAT, f.suffix) or re.match(AVI_PAT, f.suffix):
                 nb_fic += 1
-                logger.debug(f.name)
+                logger.debug(str(f).replace(str(rep_origine) + "/", ""))
+
+                # Vérification de la conversion des vidéos AVI
+                if re.match(AVI_PAT, f.suffix):
+                    logger.warning(
+                        f"Fichier vidéo non converti : {str(f).replace(str(rep_origine) + "/", "")}"
+                    )
+                    nb_nconv += 1
 
                 # Vérification du nommage
                 if not re.match(CORRECT_PAT, f.name):
-                    logger.warning(f"Fichier mal nommé : {f.name}")
+                    logger.warning(
+                        f"Fichier mal nommé : {str(f).replace(str(rep_origine) + "/", "")}"
+                    )
                     nb_err += 1
 
                 # Recherche des tags de classification
+                tags = []
                 for d in et.get_tags(f, tags=["HierarchicalSubject"]):
                     if "XMP:HierarchicalSubject" in d:
                         tags = d["XMP:HierarchicalSubject"]
-                    else:
-                        tags = []
-                    if not isinstance(tags, list):
-                        tags = [tags]
+                        break
+                # if not isinstance(tags, list):
+                #     tags = [tags]
                 logger.debug(tags)
 
                 # Vérification des tags
@@ -78,14 +92,27 @@ def vérifier(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexi
                 if len(sp) > 0:
                     nb_sp += 1
                 else:
-                    logger.warning(f"Fichier sans espèce : {f.name}")
+                    logger.warning(
+                        f"Fichier sans espèce : {str(f).replace(str(rep_origine) + "/", "")}"
+                    )
                 nb = qte(tags)
                 if len(nb) > 0:
                     nb_qte += 1
                 det = details(tags)
                 if len(det) > 0:
                     nb_det += 1
-                logger.debug(f"{f.name} : {sp}/{nb}/{det}")
+                logger.debug(
+                    f"{str(f).replace(str(rep_origine) + "/", "")} : {sp}/{nb}/{det}"
+                )
+
+                # Vérification des tags de localisation
+                loc = locs(tags)
+                if len(loc) > 0:
+                    nb_loc += 1
+                else:
+                    logger.warning(
+                        f"Fichier sans localisation : {str(f).replace(str(rep_origine) + "/", "")}"
+                    )
 
                 # Recherche des tags de géolocalisation
                 for d in et.get_tags(
@@ -98,25 +125,38 @@ def vérifier(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexi
                     ):
                         nb_geo += 1
                     else:
-                        logger.warning(f"Fichier sans géolocalisation : {f.name}")
+                        logger.warning(
+                            f"Fichier sans géolocalisation : {str(f).replace(str(rep_origine) + "/", "")}"
+                        )
 
     table = Table(title=f"Contenu de {rep_origine.name}")
     table.add_column("Item", justify="left", no_wrap=True)
     table.add_column("Valeur", justify="right")
     table.add_row("Fichiers", str(nb_fic), style="bold")
+    if nb_nconv > 0:
+        table.add_row(
+            "Fichiers vidéo non convertis", str(nb_nconv), style="bold bright_red"
+        )
     if nb_err > 0:
         table.add_row("Fichiers mal nommés", str(nb_err), style="bold bright_red")
     if nb_sp < nb_fic:
         table.add_row(
             "Fichiers sans espèce", str(nb_fic - nb_sp), style="bold bright_red"
         )
+    if nb_loc < nb_fic:
+        table.add_row(
+            "Fichiers sans localisation",
+            str(nb_fic - nb_loc),
+            style="bold bright_red",
+        )
+    if nb_geo < nb_fic:
+        table.add_row(
+            "Fichiers sans géolocalisation",
+            str(nb_fic - nb_geo),
+            style="bold bright_red",
+        )
     table.add_row("Tags espèce", str(nb_sp))
     table.add_row("Tags quantité", str(nb_qte))
     table.add_row("Tags détails", str(nb_det))
-    table.add_row("Géolocalisation", str(nb_geo))
-    if nb_geo < nb_fic:
-        table.add_row(
-            "Fichiers sans localisation", str(nb_fic - nb_geo), style="bold bright_red"
-        )
     console = Console()
     console.print(table)

@@ -20,6 +20,7 @@ from oca_utils.constantes import DETAILS_PAT
 from oca_utils.constantes import ESPECE_PAT
 from oca_utils.constantes import NATURE_PAT
 from oca_utils.constantes import NB_PAT
+from oca_utils.constantes import PLACE_PAT
 from oca_utils.constantes import QTE_PAT
 
 
@@ -57,6 +58,17 @@ def df_to_table(
         rich_table.add_row(*row)
 
     return rich_table
+
+
+def locs(tags: List[str]) -> List[str]:
+    """Extraction des noms de localisations."""
+    locs_l = []
+
+    for t in tags:
+        if PLACE_PAT.match(t):
+            # Le tag commence par Continents et pays et se termine par la localisation
+            locs_l.append(t.split("|")[-1])
+    return locs_l
 
 
 def noms(tags: List[str]) -> List[str]:
