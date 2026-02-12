@@ -67,7 +67,11 @@ def locs(tags: List[str]) -> List[str]:
     for t in tags:
         if PLACE_PAT.match(t):
             # Le tag commence par Continents et pays et se termine par la localisation
-            locs_l.append(t.split("|")[-1])
+            locr = re.search(PLACE_PAT, t.split("|")[-1])
+            if locr:
+                locs_l.append(locr.group(0))
+            else:
+                locs_l.append("Inconnu")
     return locs_l
 
 

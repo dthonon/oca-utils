@@ -248,6 +248,9 @@ def copier(  # noqa: max-complexity=13
                                         str(gx),
                                     )
                                     os.utime(gx, (mtime, mtime))
+                                    gx.with_suffix(".jpg_original").unlink(
+                                        missing_ok=True
+                                    )
                                     gx.with_suffix(".mp4_original").unlink(
                                         missing_ok=True
                                     )

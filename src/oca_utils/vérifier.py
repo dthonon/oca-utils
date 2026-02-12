@@ -83,8 +83,8 @@ def vérifier(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexi
                     if "XMP:HierarchicalSubject" in d:
                         tags = d["XMP:HierarchicalSubject"]
                         break
-                # if not isinstance(tags, list):
-                #     tags = [tags]
+                if not isinstance(tags, list):
+                    tags = [tags]
                 logger.debug(tags)
 
                 # Vérification des tags

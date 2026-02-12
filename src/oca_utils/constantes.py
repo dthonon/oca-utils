@@ -22,7 +22,7 @@ VIDEO_PAT = re.compile(r"\.(MP4|mp4)")
 AVI_PAT = re.compile(r"\.(AVI|avi|M4V|m4v)")
 CORRECT_PAT = re.compile(r"IMG_\d{8}_\d{6}_\d{2}\..*")
 XMPO_PAT = re.compile(r".*xmp_original")
-PLACE_PAT = re.compile(r"Continents et pays\|Europe\|France {France} {FR} {FRA}\|.*")
+PLACE_PAT = re.compile(r"Continents et pays\|(.*)")
 COMMUNE_PAT = re.compile(
     r"Continents et pays\|Europe\|France {France} {FR} {FRA}\|Auvergne-Rhône-Alpes\|Isère\|(.*)"
 )

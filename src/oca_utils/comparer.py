@@ -29,14 +29,14 @@ logging.basicConfig(
     "--from_dir",
     required=True,
     type=click.Path(exists=True, dir_okay=True, readable=True),
-    help="Répertoire des fichiers à traiter",
+    help="Répertoire des fichiers d'origine",
 )
 @click.option(
     "--to_dir",
     required=False,
     default="",
     type=click.Path(),
-    help="Fichier CSV d'export, pour la commande exporter uniquement",
+    help="Répertoire des fichiers OCA correspondants",
 )
 @click.pass_context
 def comparer(  # noqa: max-complexity=13
@@ -71,30 +71,37 @@ def comparer(  # noqa: max-complexity=13
     synthèse.set_index(["Répertoire"], inplace=True)
 
     # Parcours des répértoires d'origine pour chercher les photos et vidéos
-    for chemin, _dirs, fichiers in rep_origine.walk(on_error=print):
+    for chemin in rep_origine.glob("*/*"):
         chemin_p = chemin.parts
-        if Path(chemin / "information.yaml").exists():
-            with open(chemin / "information.yaml") as info:
-                infos = yaml.safe_load(info)
-                if not ("export_oca" in infos and not infos["export_oca"]):
-                    nom = infos["caméra"]["nom"]
-                    rep_racine = "_".join(
-                        (
-                            nom,
-                            re.sub(DEPT_PAT, "", chemin_p[-2]),
-                            chemin_p[-1].replace("_", ""),
+        if not (".dtrash" in chemin_p):
+            if Path(chemin / "information.yaml").exists():
+                with open(chemin / "information.yaml") as info:
+                    infos = yaml.safe_load(info)
+                    if not ("export_oca" in infos and not infos["export_oca"]):
+                        nom = infos["caméra"]["nom"]
+                        rep_racine = "_".join(
+                            (
+                                nom,
+                                re.sub(DEPT_PAT, "", chemin_p[-2]),
+                                chemin_p[-1].replace("_", ""),
+                            )
                         )
-                    )
-                    logger.debug(
-                        f"Compte dans le répertoire d'origine {chemin} vers {rep_racine}"
-                    )
-                    synthèse.loc[rep_racine, "Source"] = len(fichiers)
-                    synthèse.loc[rep_racine, "Destination"] = (
-                        1  # En comptant information.yaml
-                    )
-                    synthèse.loc[rep_racine, "Taille"] = 0
-                    synthèse.loc[rep_racine, "Photos"] = 0
-                    synthèse.loc[rep_racine, "Vidéos"] = 0
+                        logger.debug(
+                            f"Compte dans le répertoire d'origine {chemin} vers {rep_racine}"
+                        )
+                        synthèse.loc[rep_racine, "Source"] = len(
+                            [f for f in chemin.glob("**") if not f.is_dir()]
+                        )
+                        synthèse.loc[rep_racine, "Destination"] = (
+                            1  # En comptant information.yaml
+                        )
+                        synthèse.loc[rep_racine, "Taille"] = 0
+                        synthèse.loc[rep_racine, "Photos"] = 0
+                        synthèse.loc[rep_racine, "Vidéos"] = 0
+            else:
+                logger.warning(
+                    f"Le répertoire {chemin} ne contient pas d'information.yaml"
+                )
 
     # Parcours des répértoires destination pour chercher les photos et vidéos
     for chemin, _dirs, fichiers in rep_destination.walk(on_error=print):
@@ -103,7 +110,9 @@ def comparer(  # noqa: max-complexity=13
         if len(chemin_p) == lg_destination + 2 and not chemin_p[-2].startswith("."):
             # Répertoire contenant les médias
             # Calcul des tailles et types de médias
-            synthèse.loc[chemin_p[-2], "Destination"] += len(fichiers)
+            synthèse.loc[chemin_p[-2], "Destination"] += len(
+                [f for f in fichiers if not Path(f).is_dir()]
+            )
             synthèse.loc[chemin_p[-2], "Taille"] += sum(
                 (chemin / file).stat().st_size for file in fichiers
             )
