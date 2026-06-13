@@ -23,6 +23,7 @@ from . import comparer
 from . import exporter
 from . import vérifier
 from . import copier
+from . import autotagger
 from .constantes import AVI_PAT
 from .constantes import CORRECT_PAT
 from .constantes import MEDIA_PAT
@@ -30,7 +31,6 @@ from .constantes import OCA_PAT
 from .constantes import XMPO_PAT
 
 from .utilitaires import df_to_table
-
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -63,6 +63,7 @@ main.add_command(exporter.exporter)
 main.add_command(vérifier.vérifier)
 main.add_command(comparer.comparer)
 main.add_command(copier.copier)
+main.add_command(autotagger.autotagger)
 
 
 @main.command()
@@ -145,7 +146,7 @@ def convertir(
                     )
 
                     # Conversion vidéo
-                    @ffmpeg.on("progress")  # type:ignore
+                    @ffmpeg.on("progress")  # type: ignore
                     def on_progress(progress: Progress) -> None:
                         logger.debug(progress)
 
@@ -340,7 +341,7 @@ def renommer(ctx: click.Context, input_dir: str, dry_run: bool, force: bool) -> 
     "--input_dir",
     required=True,
     type=click.Path(exists=True, dir_okay=True, readable=True),
-    help="Répertoire des fichiers AVI à convertir",
+    help="Répertoire des médias à géotagger",
 )
 @click.option("--dry_run", is_flag=True, help="Mode test, sans renommage des fichiers.")
 @click.pass_context

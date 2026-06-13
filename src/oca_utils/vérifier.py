@@ -24,7 +24,6 @@ from oca_utils.utilitaires import locs
 from oca_utils.utilitaires import noms
 from oca_utils.utilitaires import qte
 
-
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -36,7 +35,7 @@ logging.basicConfig(
     "--input_dir",
     required=True,
     type=click.Path(exists=True, dir_okay=True, readable=True),
-    help="Répertoire des fichiers AVI à convertir",
+    help="Répertoire des fichiers AVI à vérifier pour la présence des tags de géolocalisation et de nommage.",
 )
 @click.pass_context
 def vérifier(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexity=13
