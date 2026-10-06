@@ -75,9 +75,9 @@ main.add_command(autotagger.autotagger)
 )
 @click.option(
     "--output_dir",
-    required=False,
+    required=True,
     default="",
-    type=click.Path(),
+    type=click.Path(exists=True, dir_okay=True, writable=True),
     help="Répertoire de destination des fichiers MP4",
 )
 @click.option(
