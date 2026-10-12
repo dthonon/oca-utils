@@ -26,7 +26,6 @@ from .utilitaires import details
 from .utilitaires import noms
 from .utilitaires import qte
 
-
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -118,8 +117,15 @@ def copier(  # noqa: max-complexity=13
                 + " pas de copie"
             )
 
-    type_cp = "complète" if full else "incrémentale"
-    logger.info(f"Copie {type_cp}" + f" depuis {dernier}")
+    if full:
+        logger.info(
+            f"Copie complète de tous les médias vers {rep_destination}/{rep_racine}"
+        )
+    else:
+        logger.info(
+            f"Copie incrémentale des médias vers {rep_destination}/{rep_racine},"
+            + f" depuis le dernier relevé {dernier}"
+        )
     with exiftool.ExifToolHelper() as et:
         # Détermination du nom OCA
         seq = 1
