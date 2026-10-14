@@ -49,6 +49,7 @@ def autotagger(ctx: click.Context, input_dir: str, dry_run: bool) -> None:
                         break
                 if not isinstance(tags, list):
                     tags = [tags]
+                tags.append(f"Deepfaune/{ld.top1}")
                 tags.append(f"Deepfaune/{ld.top1}/{ld.score}")
                 print(tags)
                 if not dry_run:
