@@ -32,7 +32,7 @@ def autotagger(ctx: click.Context, input_dir: str, dry_run: bool) -> None:
         raise FileNotFoundError
     logger.info(f"Tagging deepfaune des photos et vidéos dans {rep_origine}")
 
-    classif = pd.read_csv(rep_origine / "../deepfaune.csv", sep=",")
+    classif = pd.read_csv(rep_origine / "deepfaune.csv", sep=",")
 
     with exiftool.ExifToolHelper() as et:
         for ld in classif.itertuples():
