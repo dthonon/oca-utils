@@ -43,22 +43,26 @@ def autotagger(ctx: click.Context, input_dir: str, dry_run: bool) -> None:
                 logger.info(f"Tagging de {f.name} : {ld.top1}, {ld.score}")
                 # Recherche des tags de classification
                 tags = []
-                for d in et.get_tags(f, tags=["TagsList"]):
-                    if "XMP:TagsList" in d:
-                        tags = d["XMP:TagsList"]
-                        break
-                if not isinstance(tags, list):
-                    tags = [tags]
-                tags.append(f"Deepfaune/{ld.top1}")
-                tags.append(f"Deepfaune/{ld.top1}/{ld.score}")
-                print(tags)
-                if not dry_run:
-                    et.set_tags(
-                        fx,
-                        {
-                            "XMP:TagsList": tags,
-                        },
-                    )
+                try:
+                    for d in et.get_tags(f, tags=["TagsList"]):
+                        if "XMP:TagsList" in d:
+                            tags = d["XMP:TagsList"]
+                            break
+                    if not isinstance(tags, list):
+                        tags = [tags]
+                    tags.append(f"Deepfaune/{ld.top1}")
+                    tags.append(f"Deepfaune/{ld.top1}/{ld.score}")
+                    # print(tags)
+                    if not dry_run:
+                        et.set_tags(
+                            f,
+                            {
+                                "XMP:TagsList": tags,
+                            },
+                        )
+                except exiftool.exceptions.ExifToolExecuteError as e:
+                    logger.error(f"Erreur lors du tagging de {f.name}: {e}")
+
             else:
                 logger.warning(f"Pas de fichier sidecar pour {f.name}")
 
