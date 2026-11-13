@@ -8,27 +8,27 @@ Fonctions utilitairess pour OCA Utils, notamment :
 """
 
 import re
-from typing import Dict
-from typing import List
-from typing import Optional
 
 import pandas as pd
 from rich.table import Table
 
-from oca_utils.constantes import DET_PAT
-from oca_utils.constantes import DETAILS_PAT
-from oca_utils.constantes import ESPECE_PAT
-from oca_utils.constantes import NATURE_PAT
-from oca_utils.constantes import NB_PAT
-from oca_utils.constantes import PLACE_PAT
-from oca_utils.constantes import QTE_PAT
+from oca_utils.constantes import (
+    TAG_SEP,
+    DET_PAT,
+    DETAILS_PAT,
+    ESPECE_PAT,
+    NATURE_PAT,
+    NB_PAT,
+    PLACE_PAT,
+    QTE_PAT,
+)
 
 
 def df_to_table(
     pandas_dataframe: pd.DataFrame,
     rich_table: Table,
     show_index: bool = True,
-    index_name: Optional[str] = None,
+    index_name: str | None = None,
 ) -> Table:
     """Convert a pandas.DataFrame obj into a rich.Table obj.
 
@@ -60,14 +60,14 @@ def df_to_table(
     return rich_table
 
 
-def locs(tags: List[str]) -> List[str]:
+def locs(tags: list[str]) -> list[str]:
     """Extraction des noms de localisations."""
     locs_l = []
 
     for t in tags:
         if PLACE_PAT.match(t):
             # Le tag commence par Continents et pays et se termine par la localisation
-            locr = re.search(PLACE_PAT, t.split("|")[-1])
+            locr = re.search(PLACE_PAT, t.split(TAG_SEP)[-1])
             if locr:
                 locs_l.append(locr.group(0))
             else:
@@ -75,14 +75,14 @@ def locs(tags: List[str]) -> List[str]:
     return locs_l
 
 
-def noms(tags: List[str]) -> List[str]:
+def noms(tags: list[str]) -> list[str]:
     """Extraction des noms d'espèces."""
     noms_l = []
 
     for t in tags:
         if NATURE_PAT.match(t):
             # Le tag commence par Nature et se termine par l'espèce
-            spr = re.search(ESPECE_PAT, t.split("|")[-1])
+            spr = re.search(ESPECE_PAT, t.split(TAG_SEP)[-1])
             if spr:
                 sp = spr.group(0)
                 sp = sp[0 : len(sp) - 2]
@@ -92,7 +92,7 @@ def noms(tags: List[str]) -> List[str]:
     return noms_l
 
 
-def qte(tags: List[str]) -> List[Dict[str, str]]:
+def qte(tags: list[str]) -> list[dict[str, str]]:
     """Extraction des quantités d'individus."""
     qte_l = []
 
@@ -100,7 +100,7 @@ def qte(tags: List[str]) -> List[Dict[str, str]]:
         if QTE_PAT.match(t):
             # Le tag commence par Quantité et contient une chaîne
             # indiquant l'espèce et sa quantité
-            nbr = re.search(NB_PAT, t.split("|")[-1])
+            nbr = re.search(NB_PAT, t.split(TAG_SEP)[-1])
             if nbr:
                 nb = {nbr.group(1): nbr.group(3)}
             else:
@@ -109,7 +109,7 @@ def qte(tags: List[str]) -> List[Dict[str, str]]:
     return qte_l
 
 
-def details(tags: List[str]) -> List[Dict[str, str]]:
+def details(tags: list[str]) -> list[dict[str, str]]:
     """Extraction des détails par espèce."""
     det_l = []
 
@@ -117,7 +117,7 @@ def details(tags: List[str]) -> List[Dict[str, str]]:
         if DET_PAT.match(t):
             # Le tag commence par Détails et contient une chaîne
             # indiquant l'indice de l'espèce et ses détails
-            détails = re.search(DETAILS_PAT, t.split("|")[-1])
+            détails = re.search(DETAILS_PAT, t.split(TAG_SEP)[-1])
             if détails:
                 détail = {détails.group(1): détails.group(3)}
             else:
@@ -129,8 +129,5 @@ def details(tags: List[str]) -> List[Dict[str, str]]:
 def corrige(sp: str) -> str:
     """Correction des cas particuliers des espèces au format OCA."""
     corresp = {"Canidés": "CANIDE SP"}
-    if sp in corresp:
-        renom = corresp[sp]
-    else:
-        renom = sp
+    renom = corresp.get(sp, sp)
     return renom

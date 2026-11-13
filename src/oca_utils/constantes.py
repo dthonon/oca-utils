@@ -16,15 +16,26 @@ NON_FAUNE = {
     "Traileur",
     # "Voiture",
 }
+TAG_SEP = "/"
 MEDIA_PAT = re.compile(r"\.(MP4|mp4|JPG|jpg)")
 PHOTO_PAT = re.compile(r"\.(JPG|jpg)")
 VIDEO_PAT = re.compile(r"\.(MP4|mp4)")
 AVI_PAT = re.compile(r"\.(AVI|avi|M4V|m4v)")
 CORRECT_PAT = re.compile(r"IMG_\d{8}_\d{6}_\d{2}\..*")
 XMPO_PAT = re.compile(r".*xmp_original")
-PLACE_PAT = re.compile(r"Continents et pays\|(.*)")
+PLACE_PAT = re.compile(r"Continents et pays" + TAG_SEP + r"(.*)")
 COMMUNE_PAT = re.compile(
-    r"Continents et pays\|Europe\|France {France} {FR} {FRA}\|Auvergne-Rhône-Alpes\|Isère\|(.*)"
+    r"Continents et pays"
+    + TAG_SEP
+    + r"Europe"
+    + TAG_SEP
+    + r"France {France} {FR} {FRA}"
+    + TAG_SEP
+    + r"Auvergne-Rhône-Alpes"
+    + TAG_SEP
+    + r"Isère"
+    + TAG_SEP
+    + r"(.*)"
 )
 NATURE_PAT = re.compile(r"Nature.*")
 ESPECE_PAT = re.compile(r"(\w|\s|')+ {")

@@ -78,16 +78,18 @@ def vérifier(ctx: click.Context, input_dir: str) -> None:  # noqa: max-complexi
 
                 # Recherche des tags de classification
                 tags = []
-                for d in et.get_tags(f, tags=["HierarchicalSubject"]):
-                    if "XMP:HierarchicalSubject" in d:
-                        tags = d["XMP:HierarchicalSubject"]
+                for d in et.get_tags(f, tags=["TagsList"]):
+                    if "XMP:TagsList" in d:
+                        tags = d["XMP:TagsList"]
                         break
                 if not isinstance(tags, list):
                     tags = [tags]
                 logger.debug(tags)
+                # print(f"{str(f).replace(str(rep_origine) + '/', '')} : {tags}")
 
                 # Vérification des tags
                 sp = noms(tags)
+                # print(f"{str(f).replace(str(rep_origine) + '/', '')} : {sp}")
                 if len(sp) > 0:
                     nb_sp += 1
                 else:

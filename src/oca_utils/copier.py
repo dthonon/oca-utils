@@ -137,9 +137,9 @@ def copier(  # noqa: max-complexity=13
                 if full or date_prise > dernier:
                     logger.debug(f"Copie/renommage de {f.name}, daté {date_prise}")
                     # Recherche des tags de classification
-                    for d in et.get_tags(f, tags=["HierarchicalSubject"]):
-                        if "XMP:HierarchicalSubject" in d:
-                            tags = d["XMP:HierarchicalSubject"]
+                    for d in et.get_tags(f, tags=["TagsList"]):
+                        if "XMP:TagsList" in d:
+                            tags = d["XMP:TagsList"]
                             break
 
                     # print(tags)
