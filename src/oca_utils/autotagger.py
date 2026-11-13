@@ -42,22 +42,24 @@ def autotagger(ctx: click.Context, input_dir: str, dry_run: bool) -> None:
             if fx.is_file():
                 logger.info(f"Tagging de {f.name} : {ld.top1}, {ld.score}")
                 # Recherche des tags de classification
-                tags = []
                 try:
-                    for d in et.get_tags(f, tags=["TagsList"]):
+                    tags_list = []
+                    for d in et.get_tags(fx, tags=["TagsList"]):
                         if "XMP:TagsList" in d:
-                            tags = d["XMP:TagsList"]
+                            tags_list = d["XMP:TagsList"]
                             break
-                    if not isinstance(tags, list):
-                        tags = [tags]
-                    tags.append(f"Deepfaune/{ld.top1}")
-                    tags.append(f"Deepfaune/{ld.top1}/{ld.score}")
-                    # print(tags)
+                    if not isinstance(tags_list, list):
+                        tags_list = [tags_list]  # type: ignore
+                    # # Suppression des tags Deepfaune existants
+                    tags_list = [t for t in tags_list if not t.startswith("Deepfaune/")]
+                    tags_list.append(f"Deepfaune/{ld.top1}")
+                    tags_list.append(f"Deepfaune/{ld.top1}/{ld.score}")
+                    # print(tags_list)
                     if not dry_run:
                         et.set_tags(
-                            f,
+                            fx,
                             {
-                                "XMP:TagsList": tags,
+                                "XMP:TagsList": tags_list,
                             },
                         )
                 except exiftool.exceptions.ExifToolExecuteError as e:
